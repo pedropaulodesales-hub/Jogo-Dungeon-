@@ -60,6 +60,64 @@ const ActionGauge: React.FC<{ value: number; color?: string }> = ({ value, color
     </div>
 );
 
+const RiskParticles: React.FC<{ risk: 'LOW' | 'MEDIUM' | 'HIGH' }> = ({ risk }) => {
+    const config = useMemo(() => {
+        switch(risk) {
+            case 'HIGH': return { 
+                count: 20, 
+                color: 'bg-red-600', 
+                duration: [0.8, 1.5], 
+                shadow: '0 0 8px #dc2626',
+                gradient: 'from-red-900/40' 
+            };
+            case 'MEDIUM': return { 
+                count: 12, 
+                color: 'bg-orange-500', 
+                duration: [1.5, 2.5], 
+                shadow: '0 0 5px #f97316',
+                gradient: 'from-orange-900/30'
+            };
+            case 'LOW': default: return { 
+                count: 8, 
+                color: 'bg-emerald-400', 
+                duration: [3, 5], 
+                shadow: '0 0 3px #34d399',
+                gradient: 'from-emerald-900/20'
+            };
+        }
+    }, [risk]);
+
+    const particles = useMemo(() => {
+        return Array.from({ length: config.count }).map((_, i) => ({
+            left: Math.random() * 100,
+            size: Math.random() * 3 + 1,
+            duration: config.duration[0] + Math.random() * (config.duration[1] - config.duration[0]),
+            delay: Math.random() * -5,
+        }));
+    }, [config]);
+
+    return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+            <div className={`absolute inset-0 bg-gradient-to-t ${config.gradient} to-transparent opacity-60`}></div>
+            {particles.map((p, i) => (
+                <div
+                    key={i}
+                    className={`absolute rounded-full ${config.color} opacity-60 mix-blend-screen`}
+                    style={{
+                        left: `${p.left}%`,
+                        width: `${p.size}px`,
+                        height: `${p.size}px`,
+                        boxShadow: config.shadow,
+                        animation: `cardRise ${p.duration}s linear infinite`,
+                        animationDelay: `${p.delay}s`,
+                        bottom: '-10px'
+                    }}
+                />
+            ))}
+        </div>
+    );
+};
+
 const EmberParticles: React.FC = () => {
   const particles = useMemo(() => {
     return Array.from({ length: 40 }).map((_, i) => ({
@@ -259,6 +317,7 @@ const PathCard: React.FC<{
                 isVisited ? 'border-blue-500/40' : 'border-[#333]'
             } ${className}`}
         >
+            {!isVisited && !isEmpty && <RiskParticles risk={choice.riskLevel} />}
             <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-500 ${isVisited ? 'from-blue-900/20' : 'from-amber-900/0'}`}></div>
             
             <div className="flex justify-between items-start relative z-10">
@@ -276,7 +335,7 @@ const PathCard: React.FC<{
             
             <div className="flex items-center justify-between relative z-10 mt-2 border-t border-white/5 pt-3">
                 <span className={`text-[11px] font-black tracking-[0.2em] uppercase ${
-                    isVisited ? 'text-blue-500' : choice.riskLevel === 'HIGH' ? 'text-red-600' : 'text-amber-600'
+                    isVisited ? 'text-blue-500' : choice.riskLevel === 'HIGH' ? 'text-red-600' : choice.riskLevel === 'MEDIUM' ? 'text-orange-500' : 'text-emerald-500'
                 }`}>
                     {isVisited ? 'Explored' : `${choice.riskLevel} Risk`}
                 </span>
@@ -298,11 +357,12 @@ const DualPathCard: React.FC<{
                     onClick={() => onChoice(north)}
                     className={`flex-1 flex flex-col justify-center px-6 relative cursor-pointer hover:bg-white/5 transition-all border-b border-white/5 ${isVisited(north) ? 'bg-blue-950/20' : ''}`}
                 >
-                    <div className="flex justify-between items-center mb-0.5">
+                    {!isVisited(north) && <RiskParticles risk={north.riskLevel} />}
+                    <div className="flex justify-between items-center mb-0.5 relative z-10">
                         <span className={`exocet-font text-lg uppercase tracking-widest ${isVisited(north) ? 'text-blue-300' : 'text-slate-200'}`}>Forward</span>
                         <span className="text-amber-500/30 text-xl">↑</span>
                     </div>
-                    <p className="text-xs text-slate-500 italic truncate opacity-80">"{isVisited(north) ? 'Known territory.' : north.description}"</p>
+                    <p className="text-xs text-slate-500 italic truncate opacity-80 relative z-10">"{isVisited(north) ? 'Known territory.' : north.description}"</p>
                 </div>
             ) : <div className="flex-1 bg-black/40" />}
 
@@ -311,11 +371,12 @@ const DualPathCard: React.FC<{
                     onClick={() => onChoice(south)}
                     className={`flex-1 flex flex-col justify-center px-6 relative cursor-pointer hover:bg-white/5 transition-all ${isVisited(south) ? 'bg-blue-950/20' : ''}`}
                 >
-                    <div className="flex justify-between items-center mb-0.5">
+                    {!isVisited(south) && <RiskParticles risk={south.riskLevel} />}
+                    <div className="flex justify-between items-center mb-0.5 relative z-10">
                         <span className={`exocet-font text-lg uppercase tracking-widest ${isVisited(south) ? 'text-blue-300' : 'text-slate-200'}`}>Back</span>
                         <span className="text-amber-500/30 text-xl">↓</span>
                     </div>
-                    <p className="text-xs text-slate-500 italic truncate opacity-80">"{isVisited(south) ? 'A path revisited.' : south.description}"</p>
+                    <p className="text-xs text-slate-500 italic truncate opacity-80 relative z-10">"{isVisited(south) ? 'A path revisited.' : south.description}"</p>
                 </div>
             ) : <div className="flex-1 bg-black/40" />}
         </div>
