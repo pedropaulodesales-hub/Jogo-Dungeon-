@@ -131,6 +131,16 @@
             letter-spacing: 0.2em;
             color: #666;
         }
+
+        /* Loot Notification Animation */
+        .loot-toast {
+            animation: slideIn 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+            backdrop-filter: blur(4px);
+        }
+        @keyframes slideIn {
+            0% { transform: translateX(100px); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
     </style>
 <script type="importmap">
 {

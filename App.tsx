@@ -10,6 +10,25 @@ import {
 import * as Gemini from './services/geminiService';
 import RunePanel from './components/RunePanel';
 
+// --- Interfaces ---
+
+interface LootVisual {
+    id: number;
+    x: number; // percentage (0-100)
+    y: number; // percentage (0-100)
+    vx: number;
+    vy: number;
+    icon: string;
+    life: number;
+    color: string;
+    scale: number;
+}
+
+interface LootNotification {
+    id: string;
+    item: Item;
+}
+
 // --- Components ---
 
 const EmberParticles: React.FC = () => {
@@ -498,6 +517,82 @@ const App: React.FC = () => {
   const [biome, setBiome] = useState(BIOMES[0]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Loot Particle State
+  const [lootVisuals, setLootVisuals] = useState<LootVisual[]>([]);
+  // Loot Showcase State
+  const [lootNotifications, setLootNotifications] = useState<LootNotification[]>([]);
+
+
+  // Loot Particle Animation Loop
+  useEffect(() => {
+    if (lootVisuals.length === 0) return;
+    const timer = requestAnimationFrame(() => {
+       setLootVisuals(prev => prev.map(p => ({
+           ...p,
+           x: p.x + p.vx,
+           y: p.y + p.vy,
+           vy: p.vy + 0.1, // Gravity
+           life: p.life - 0.02
+       })).filter(p => p.life > 0));
+    });
+    return () => cancelAnimationFrame(timer);
+  }, [lootVisuals]);
+
+  // Trigger function for visual effects
+  const triggerLootDrop = (items: Item[], gold: number) => {
+    const newParticles: LootVisual[] = [];
+    const centerX = 50; 
+    const centerY = 40; 
+
+    // Gold Particles
+    const goldCount = Math.min(12, Math.floor(gold / 10) + 3);
+    for (let i = 0; i < goldCount; i++) {
+        newParticles.push({
+            id: Math.random(),
+            x: centerX,
+            y: centerY,
+            vx: (Math.random() - 0.5) * 0.8, 
+            vy: (Math.random() * -1.5) - 0.5, 
+            icon: '🪙',
+            life: 1.0 + Math.random() * 0.5,
+            color: '#fbbf24',
+            scale: 0.5 + Math.random() * 0.5
+        });
+    }
+    
+    // Item Particles
+    items.forEach(item => {
+        newParticles.push({
+            id: Math.random(),
+            x: centerX,
+            y: centerY,
+            vx: (Math.random() - 0.5) * 1.2,
+            vy: (Math.random() * -2.0) - 1.0, 
+            icon: item.icon || '📦',
+            life: 2.0,
+            color: item.rarity === 'LEGENDARY' ? '#f59e0b' : item.rarity === 'RARE' ? '#60a5fa' : '#e5e7eb',
+            scale: 1.2
+        });
+    });
+
+    setLootVisuals(prev => [...prev, ...newParticles]);
+  };
+
+  const triggerLootShowcase = (items: Item[]) => {
+      const newNotifs = items.map(item => ({
+          id: Math.random().toString(36).substr(2, 9),
+          item
+      }));
+      setLootNotifications(prev => [...prev, ...newNotifs]);
+
+      // Schedule removal
+      newNotifs.forEach((n, index) => {
+          setTimeout(() => {
+              setLootNotifications(prev => prev.filter(x => x.id !== n.id));
+          }, 4000 + (index * 500));
+      });
+  };
+
   useEffect(() => {
      if (character && Object.keys(visitedRooms).length === 0) {
          const savedMap = localStorage.getItem('runebound_map_v3');
@@ -603,6 +698,10 @@ const App: React.FC = () => {
     const drops = Gemini.generateLoot(currentRoom?.depth || 1, 'ENEMY');
     if (drops.length > 0) {
         addLog(`Looted ${drops.map(d => d.name).join(', ')}`);
+        triggerLootDrop(drops, enemy.rewardGold); // Trigger Visuals
+        triggerLootShowcase(drops); // Trigger Showcase
+    } else {
+        triggerLootDrop([], enemy.rewardGold); // Just gold
     }
 
     setCharacter(prev => {
@@ -725,6 +824,9 @@ const App: React.FC = () => {
       const newChar = { ...character, gold: character.gold + gold, inventory: [...character.inventory, ...items] };
       setCharacter(newChar);
       
+      triggerLootDrop(items, gold); // Trigger visuals
+      triggerLootShowcase(items); // Trigger Showcase
+
       // Update room so chest is opened
       const updatedRoom = { 
           ...currentRoom, 
@@ -993,6 +1095,67 @@ const App: React.FC = () => {
              <div className="exocet-font text-xl text-slate-500 tracking-[0.2em] uppercase">Divining the Path</div>
         </div>
       )}
+
+      {/* Loot Visual Layer */}
+      <div className="absolute inset-0 pointer-events-none z-[200] overflow-hidden">
+        {lootVisuals.map(p => (
+            <div 
+                key={p.id}
+                className="absolute text-4xl drop-shadow-md transition-opacity"
+                style={{
+                    left: `${p.x}%`,
+                    top: `${p.y}%`,
+                    opacity: p.life,
+                    transform: `scale(${p.scale})`,
+                    color: p.color
+                }}
+            >
+                {p.icon}
+            </div>
+        ))}
+      </div>
+
+      {/* LOOT SHOWCASE */}
+      <div className="absolute top-24 right-6 z-[150] flex flex-col items-end gap-2 pointer-events-none">
+          {lootNotifications.map(note => (
+              <div 
+                  key={note.id} 
+                  className={`loot-toast relative w-64 bg-[#0a0a0c] border p-3 rounded shadow-[0_0_20px_rgba(0,0,0,0.8)] flex items-center gap-3 overflow-hidden
+                    ${note.item.rarity === 'LEGENDARY' ? 'border-amber-500/60' : 
+                      note.item.rarity === 'RARE' ? 'border-blue-500/60' : 
+                      note.item.rarity === 'UNCOMMON' ? 'border-green-500/60' : 'border-[#333]'}
+                  `}
+              >
+                   {/* Background Gradient */}
+                   <div className={`absolute inset-0 opacity-20 bg-gradient-to-r 
+                        ${note.item.rarity === 'LEGENDARY' ? 'from-amber-900 via-amber-600/20 to-transparent' : 
+                          note.item.rarity === 'RARE' ? 'from-blue-900 via-blue-600/20 to-transparent' : 
+                          note.item.rarity === 'UNCOMMON' ? 'from-green-900 via-green-600/20 to-transparent' : 'from-slate-800 to-transparent'}
+                   `}></div>
+                   
+                   {/* Icon */}
+                   <div className={`relative z-10 w-10 h-10 flex items-center justify-center text-2xl bg-black/40 rounded border shadow-inner
+                        ${note.item.rarity === 'LEGENDARY' ? 'border-amber-500/50 text-amber-500' : 
+                          note.item.rarity === 'RARE' ? 'border-blue-500/50 text-blue-400' : 
+                          note.item.rarity === 'UNCOMMON' ? 'border-green-500/50 text-green-500' : 'border-slate-700 text-slate-400'}
+                   `}>
+                       {note.item.icon}
+                   </div>
+
+                   {/* Text */}
+                   <div className="relative z-10 flex-1 min-w-0">
+                       <div className={`text-xs font-black uppercase tracking-wider truncate
+                            ${note.item.rarity === 'LEGENDARY' ? 'text-amber-100' : 'text-slate-200'}
+                       `}>{note.item.name}</div>
+                       <div className={`text-[9px] font-bold uppercase tracking-[0.1em]
+                            ${note.item.rarity === 'LEGENDARY' ? 'text-amber-500' : 
+                              note.item.rarity === 'RARE' ? 'text-blue-400' : 
+                              note.item.rarity === 'UNCOMMON' ? 'text-green-500' : 'text-slate-500'}
+                       `}>{note.item.rarity} {note.item.type}</div>
+                   </div>
+              </div>
+          ))}
+      </div>
 
       {showInventory && (
           <InventoryModal 
