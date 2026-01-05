@@ -1,4 +1,3 @@
-
 import { Room, EncounterType, Enemy, PathChoice, Item, ItemType, ArmorWeight, PlayerClass } from "../types";
 import { STATIC_DUNGEON_IMAGE } from "../constants";
 
@@ -457,7 +456,8 @@ export async function generateEnemy(biome: string, depth: number): Promise<Enemy
     speed: 10,
     rewardXp: 30 + (depth * 10),
     rewardGold: 15 + (depth * 5),
-    imagePrompt: "" 
+    imagePrompt: "",
+    statusEffects: []
   };
 }
 

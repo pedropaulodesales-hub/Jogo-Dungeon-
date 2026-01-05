@@ -7,7 +7,7 @@ export enum EncounterType {
   PUZZLE = 'PUZZLE',
   SECRET = 'SECRET',
   STORY = 'STORY',
-  REST = 'REST' // Added
+  REST = 'REST'
 }
 
 export type PlayerClass = 'WARRIOR' | 'ROGUE' | 'MAGE' | 'CLERIC' | 'BARBARIAN' | 'ARCHER';
@@ -20,6 +20,16 @@ export interface Attributes {
   cha: number;
 }
 
+export type StatusType = 'POISON' | 'BURN' | 'STUN' | 'SLOW' | 'REGEN' | 'WEAKNESS';
+
+export interface StatusEffect {
+  id: string;
+  type: StatusType;
+  duration: number; // in milliseconds
+  value: number; // damage amount, slow percentage, etc.
+  source: 'PLAYER' | 'ENEMY';
+}
+
 export interface Skill {
   id: string;
   name: string;
@@ -29,6 +39,12 @@ export interface Skill {
   damageMult: number;
   lastUsed: number;
   icon: string;
+  applyEffect?: {
+      type: StatusType;
+      duration: number;
+      value: number;
+      chance: number; // 0-1
+  };
 }
 
 export type EquipmentSlot = 'HELM' | 'CHEST' | 'GLOVES' | 'BOOTS' | 'OFFHAND' | 'AMULET' | 'BELT' | 'RING1' | 'RING2' | 'WEAPON';
@@ -83,6 +99,7 @@ export interface Character {
   attributes: Attributes;
   inventory: Item[];
   equipment: Record<EquipmentSlot, Item | null>;
+  statusEffects: StatusEffect[];
 }
 
 export interface Enemy {
@@ -94,6 +111,7 @@ export interface Enemy {
   rewardXp: number;
   rewardGold: number;
   imagePrompt: string;
+  statusEffects: StatusEffect[];
 }
 
 export interface Room {
@@ -106,7 +124,7 @@ export interface Room {
   choices: PathChoice[];
   encounterData?: {
     merchantStock?: Item[];
-    loot?: Item[]; // Changed from Item to Item[]
+    loot?: Item[];
     goldReward?: number;
     puzzleSolved?: boolean;
     secretFound?: boolean;

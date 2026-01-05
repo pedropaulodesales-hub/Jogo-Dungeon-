@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Skill, PlayerClass, Attributes } from './types';
 
@@ -23,7 +24,7 @@ export const CLASS_DATA: Record<PlayerClass, {
     attributes: { str: 14, dex: 10, vit: 12, int: 6, cha: 8 },
     hp: 140, mp: 53, atk: 20, mag: 12, def: 7, crit: 5,
     icon: '🛡️',
-    skills: ['strike', 'ward']
+    skills: ['strike', 'bash']
   },
   ROGUE: {
     name: 'Rogue',
@@ -31,7 +32,7 @@ export const CLASS_DATA: Record<PlayerClass, {
     attributes: { str: 8, dex: 16, vit: 8, int: 8, cha: 10 },
     hp: 108, mp: 65, atk: 15, mag: 15, def: 5, crit: 15,
     icon: '🗡️',
-    skills: ['strike', 'siphon']
+    skills: ['strike', 'poison_tip']
   },
   MAGE: {
     name: 'Mage',
@@ -39,7 +40,7 @@ export const CLASS_DATA: Record<PlayerClass, {
     attributes: { str: 5, dex: 8, vit: 6, int: 18, cha: 8 },
     hp: 92, mp: 125, atk: 10, mag: 30, def: 3, crit: 4,
     icon: '🔮',
-    skills: ['nova', 'ward']
+    skills: ['nova', 'freeze']
   },
   CLERIC: {
     name: 'Cleric',
@@ -47,7 +48,7 @@ export const CLASS_DATA: Record<PlayerClass, {
     attributes: { str: 8, dex: 8, vit: 12, int: 14, cha: 10 },
     hp: 140, mp: 101, atk: 13, mag: 24, def: 5, crit: 4,
     icon: '✨',
-    skills: ['siphon', 'ward']
+    skills: ['smite', 'ward']
   },
   BARBARIAN: {
     name: 'Barbarian',
@@ -55,7 +56,7 @@ export const CLASS_DATA: Record<PlayerClass, {
     attributes: { str: 18, dex: 8, vit: 14, int: 4, cha: 6 },
     hp: 156, mp: 41, atk: 23, mag: 9, def: 9, crit: 4,
     icon: '🪓',
-    skills: ['strike', 'nova']
+    skills: ['strike', 'enrage']
   },
   ARCHER: {
     name: 'Archer',
@@ -63,7 +64,7 @@ export const CLASS_DATA: Record<PlayerClass, {
     attributes: { str: 10, dex: 18, vit: 8, int: 6, cha: 8 },
     hp: 108, mp: 53, atk: 18, mag: 12, def: 5, crit: 6,
     icon: '🏹',
-    skills: ['strike', 'siphon']
+    skills: ['strike', 'cripple']
   }
 };
 
@@ -71,42 +72,98 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   strike: {
     id: 'strike',
     name: 'Runic Strike',
-    description: 'A focused mana-infused blow. Deals 160% weapon damage.',
+    description: 'A focused mana-infused blow.',
     manaCost: 8,
     cooldown: 3500,
     damageMult: 1.6,
     lastUsed: 0,
     icon: '⚔️'
   },
+  bash: {
+    id: 'bash',
+    name: 'Shield Bash',
+    description: 'Slams the enemy, possibly stunning them.',
+    manaCost: 15,
+    cooldown: 8000,
+    damageMult: 1.2,
+    lastUsed: 0,
+    icon: '🛡️',
+    applyEffect: { type: 'STUN', duration: 2500, value: 1, chance: 0.6 }
+  },
+  poison_tip: {
+    id: 'poison_tip',
+    name: 'Venom Blade',
+    description: 'Coats weapon in poison.',
+    manaCost: 12,
+    cooldown: 6000,
+    damageMult: 1.1,
+    lastUsed: 0,
+    icon: '🧪',
+    applyEffect: { type: 'POISON', duration: 8000, value: 5, chance: 1.0 }
+  },
   nova: {
     id: 'nova',
     name: 'Spirit Nova',
-    description: 'Explosive mana release. Deals 240% damage to all nearby essence.',
+    description: 'Explosive mana release.',
     manaCost: 22,
     cooldown: 9000,
     damageMult: 2.4,
     lastUsed: 0,
-    icon: '❄️'
+    icon: '🔥',
+    applyEffect: { type: 'BURN', duration: 4000, value: 8, chance: 0.5 }
   },
-  siphon: {
-    id: 'siphon',
-    name: 'Essence Drain',
-    description: 'Tear life-force from the enemy. 130% damage and heals for 8% of max HP.',
-    manaCost: 14,
+  freeze: {
+    id: 'freeze',
+    name: 'Glacial Spike',
+    description: 'Chills the enemy, slowing their actions.',
+    manaCost: 18,
     cooldown: 7000,
-    damageMult: 1.3,
+    damageMult: 1.8,
     lastUsed: 0,
-    icon: '🩸'
+    icon: '❄️',
+    applyEffect: { type: 'SLOW', duration: 6000, value: 0.5, chance: 0.8 }
+  },
+  smite: {
+    id: 'smite',
+    name: 'Holy Smite',
+    description: 'Calls down light to burn the wicked.',
+    manaCost: 15,
+    cooldown: 5000,
+    damageMult: 1.9,
+    lastUsed: 0,
+    icon: '⚡',
+    applyEffect: { type: 'BURN', duration: 3000, value: 10, chance: 0.4 }
+  },
+  enrage: {
+    id: 'enrage',
+    name: 'Furious Blow',
+    description: 'A reckless attack that ignores pain.',
+    manaCost: 10,
+    cooldown: 4000,
+    damageMult: 2.2,
+    lastUsed: 0,
+    icon: '😡'
+  },
+  cripple: {
+    id: 'cripple',
+    name: 'Leg Shot',
+    description: 'Aims for mobility to slow the target.',
+    manaCost: 12,
+    cooldown: 6000,
+    damageMult: 1.4,
+    lastUsed: 0,
+    icon: '🦵',
+    applyEffect: { type: 'SLOW', duration: 5000, value: 0.4, chance: 1.0 }
   },
   ward: {
     id: 'ward',
     name: 'Runic Ward',
-    description: 'Envelop yourself in protective runes. Restores 15 Mana instantly.',
+    description: 'Restores 15 Mana instantly and clears effects.',
     manaCost: 0,
     cooldown: 15000,
     damageMult: 0,
     lastUsed: 0,
-    icon: '🛡️'
+    icon: '💠'
   }
 };
 
