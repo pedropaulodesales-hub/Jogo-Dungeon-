@@ -1,0 +1,149 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Runebound: Dark Descent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;500;600;700;900&family=MedievalSharp&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #050505;
+            --panel-bg: #111115;
+            --border-stone: #2c2c34;
+            --border-highlight: #4a4a55;
+            --accent-gold: #c5a059;
+            --accent-rune: #4d94ff;
+            --hp-red: #8b0000;
+            --mp-blue: #00008b;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: #d1d1d6;
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Cinzel', serif;
+        }
+
+        .exocet-font {
+            font-family: 'Cinzel Decorative', serif;
+            letter-spacing: 0.15em;
+            font-weight: 700;
+        }
+
+        /* Weathered Stone Texture via CSS */
+        .ui-panel {
+            background-color: var(--panel-bg);
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(255,255,255,0.02) 0%, transparent 100%),
+                linear-gradient(180deg, rgba(20,20,25,0.9) 0%, rgba(10,10,12,1) 100%);
+            border: 1px solid var(--border-stone);
+            box-shadow: 
+                inset 0 0 15px rgba(0,0,0,0.8),
+                0 10px 40px rgba(0,0,0,0.9),
+                inset 1px 1px 0 rgba(255,255,255,0.05),
+                inset -1px -1px 0 rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        /* Ornate Tablet Style */
+        .ui-tablet {
+            background: linear-gradient(135deg, #1a1a20 0%, #0d0d12 100%);
+            border: 2px solid #3a3a45;
+            box-shadow: 
+                0 0 0 1px #111115,
+                inset 0 0 20px rgba(0,0,0,1);
+            position: relative;
+        }
+
+        .ui-tablet::before {
+            content: '';
+            position: absolute;
+            inset: 2px;
+            border: 1px solid rgba(197, 160, 89, 0.1);
+            pointer-events: none;
+        }
+
+        .rune-glow {
+            text-shadow: 0 0 10px rgba(77, 148, 255, 0.4), 0 0 20px rgba(77, 148, 255, 0.2);
+        }
+
+        .rune-glow-gold {
+            text-shadow: 0 0 12px rgba(197, 160, 89, 0.5), 0 0 25px rgba(197, 160, 89, 0.3);
+        }
+
+        /* Shimmer Effect for Bars */
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .bar-shimmer {
+            position: relative;
+            overflow: hidden;
+        }
+        .bar-shimmer::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            animation: shimmer 3s infinite;
+        }
+
+        /* Particle Animation */
+        @keyframes rise {
+            0% { transform: translateY(110vh) translateX(0) scale(0.5); opacity: 0; }
+            10% { opacity: 1; }
+            50% { transform: translateY(50vh) translateX(20px) scale(1); opacity: 0.8; }
+            100% { transform: translateY(-10vh) translateX(-20px) scale(0.2); opacity: 0; }
+        }
+
+        .ember {
+            position: absolute;
+            bottom: -20px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #ffaa00 0%, #ff4500 40%, transparent 80%);
+            box-shadow: 0 0 6px #ff5500;
+            animation: rise linear infinite;
+            pointer-events: none;
+            mix-blend-mode: screen;
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #0d0d12; }
+        ::-webkit-scrollbar-thumb { background: #3a3a45; }
+        
+        .path-card-hover:hover {
+            box-shadow: 0 0 30px rgba(197, 160, 89, 0.2);
+            border-color: #c5a059;
+            transform: translateY(-4px);
+            background: linear-gradient(180deg, #1e1e24 0%, #0d0d10 100%);
+        }
+
+        .stat-label {
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: #666;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+</body>
+</html>
