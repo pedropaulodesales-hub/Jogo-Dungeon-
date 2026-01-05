@@ -56,6 +56,7 @@ export interface Item {
     dex?: number;
     int?: number;
     vit?: number;
+    cha?: number;
   };
   effect?: {
     type: 'HEAL' | 'MANA';
@@ -105,7 +106,7 @@ export interface Room {
   choices: PathChoice[];
   encounterData?: {
     merchantStock?: Item[];
-    loot?: Item;
+    loot?: Item[]; // Changed from Item to Item[]
     goldReward?: number;
     puzzleSolved?: boolean;
     secretFound?: boolean;

@@ -97,37 +97,98 @@ const MiniMap: React.FC<{
     onTravel: (room: Room) => void;
 }> = ({ currentRoom, visitedRooms, onTravel }) => {
     if (!currentRoom) return null;
-    const CELL_SIZE = 12;
+    const CELL_SIZE = 14;
 
     return (
-        <div className="w-[150px] h-[150px] ui-panel border-[#444] rounded-sm relative overflow-hidden shadow-2xl group pointer-events-auto">
-             <div className="absolute top-2 left-2 text-[8px] text-slate-500 uppercase tracking-[0.2em] font-bold z-20 pointer-events-none">Cartography</div>
+        <div className="w-[200px] h-[200px] ui-panel border-[#444] rounded-sm relative overflow-hidden shadow-2xl group pointer-events-auto bg-[#0b0b0e]">
+             <div className="absolute top-3 left-3 flex flex-col z-20 pointer-events-none">
+                <span className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black exocet-font">Cartography</span>
+                <span className="text-[8px] text-slate-600 font-serif italic">Sector {currentRoom.depth}</span>
+             </div>
+             
+             {/* Legend */}
+             <div className="absolute bottom-3 right-3 flex flex-col gap-1.5 z-20 pointer-events-none bg-black/40 p-2 rounded border border-white/5 backdrop-blur-sm">
+                <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-amber-500 rounded-sm shadow-[0_0_4px_rgba(245,158,11,0.5)]"></div><span className="text-[8px] text-slate-400 uppercase tracking-wider font-bold">Loot</span></div>
+                <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-blue-500 rounded-sm shadow-[0_0_4px_rgba(59,130,246,0.5)]"></div><span className="text-[8px] text-slate-400 uppercase tracking-wider font-bold">Safe</span></div>
+                <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-red-900 rounded-sm"></div><span className="text-[8px] text-slate-500 uppercase tracking-wider font-bold">Cleared</span></div>
+             </div>
+
              <div className="absolute inset-0 flex items-center justify-center">
-                 <div className="relative w-0 h-0"> 
+                 <div className="relative w-0 h-0 transition-transform duration-500 ease-out"> 
                      {Object.values(visitedRooms).map((room: Room) => {
-                         const relX = (room.x - currentRoom.x) * (CELL_SIZE + 4);
-                         const relY = (room.y - currentRoom.y) * (CELL_SIZE + 4);
+                         const relX = (room.x - currentRoom.x) * (CELL_SIZE + 8);
+                         const relY = (room.y - currentRoom.y) * (CELL_SIZE + 8);
                          const isCurrent = room.x === currentRoom.x && room.y === currentRoom.y;
                          const isStart = room.x === 0 && room.y === 0;
+
+                         let baseClasses = "absolute rounded-[1px] border transition-all duration-300 z-10 cursor-pointer flex items-center justify-center shadow-lg";
+                         let sizeClasses = "w-4 h-4";
+                         let colorClasses = "bg-slate-800 border-slate-600";
+                         let content = null;
+
+                         // Type styling
+                         switch (room.encounterType) {
+                            case EncounterType.TREASURE:
+                                if (room.encounterData?.chestOpened) {
+                                    colorClasses = "bg-amber-950/40 border-amber-900/40 opacity-80";
+                                } else {
+                                    colorClasses = "bg-amber-600 border-amber-300 shadow-[0_0_8px_rgba(245,158,11,0.6)] z-15";
+                                    content = <span className="text-[8px] leading-none text-amber-100 font-bold">?</span>;
+                                }
+                                break;
+                            case EncounterType.MERCHANT:
+                                colorClasses = "bg-blue-900 border-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.4)] z-15";
+                                content = <span className="text-[8px] leading-none text-blue-200">💎</span>;
+                                break;
+                            case EncounterType.BATTLE:
+                                colorClasses = "bg-red-950/60 border-red-900/60 opacity-90"; 
+                                break;
+                            case EncounterType.STORY:
+                            case EncounterType.PUZZLE:
+                                colorClasses = "bg-purple-900 border-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.4)] z-15";
+                                content = <span className="text-[8px] leading-none text-purple-200">❂</span>;
+                                break;
+                            case EncounterType.TRAP:
+                                colorClasses = room.encounterData?.trapDisarmed 
+                                    ? "bg-stone-800 border-stone-600" 
+                                    : "bg-orange-900/80 border-orange-600";
+                                break;
+                            default:
+                                break;
+                         }
+
+                         if (isStart) {
+                             colorClasses = "bg-emerald-900 border-emerald-500";
+                             content = <span className="text-[8px] leading-none text-emerald-200">⌂</span>;
+                         }
+
+                         if (isCurrent) {
+                             baseClasses += " z-30 scale-125 ring-1 ring-amber-100";
+                             colorClasses = "bg-amber-500 border-amber-200 animate-pulse shadow-[0_0_15px_rgba(251,191,36,0.8)]";
+                             content = <div className="w-1 h-1 bg-white rounded-full shadow-sm" />;
+                         } else {
+                             baseClasses += " hover:scale-110 hover:z-20 hover:border-white/50 hover:shadow-xl";
+                         }
 
                          return (
                              <div 
                                 key={`${room.x},${room.y}`}
                                 onClick={() => onTravel(room)}
-                                className={`absolute rounded-[1px] border transition-all duration-300 z-10 cursor-pointer hover:scale-125 ${
-                                    isCurrent 
-                                        ? 'bg-amber-500 border-amber-200 w-3.5 h-3.5 z-20 shadow-[0_0_10px_rgba(245,158,11,0.8)] animate-pulse' 
-                                        : isStart
-                                            ? 'bg-green-800/80 border-green-600/50 w-2.5 h-2.5'
-                                            : 'bg-slate-800 border-slate-600 w-2.5 h-2.5'
-                                }`}
+                                className={`${baseClasses} ${sizeClasses} ${colorClasses}`}
                                 style={{ transform: `translate(${relX}px, ${relY}px) translate(-50%, -50%)` }}
-                             />
+                                title={`${room.title} (${room.encounterType})`}
+                             >
+                                 {content}
+                             </div>
                          );
                      })}
                  </div>
              </div>
-             <div className="absolute inset-0 pointer-events-none opacity-10 bg-[radial-gradient(circle,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:15px_15px]"></div>
+             
+             {/* Radial gradient overlay */}
+             <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle,transparent_40%,rgba(0,0,0,0.8)_100%)]"></div>
+             {/* Grid */}
+             <div className="absolute inset-0 pointer-events-none opacity-5 bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[size:16px_16px] [background-position:center]"></div>
         </div>
     );
 };
@@ -213,11 +274,20 @@ const DualPathCard: React.FC<{
     );
 };
 
-const EquipmentSlotIcon: React.FC<{ type: EquipmentSlot; item: Item | null; onClick: () => void }> = ({ type, item, onClick }) => (
+const EquipmentSlotIcon: React.FC<{ 
+    type: EquipmentSlot; 
+    item: Item | null; 
+    onClick: () => void;
+    selected?: boolean; 
+}> = ({ type, item, onClick, selected }) => (
     <div 
         onClick={onClick}
         className={`w-14 h-14 border rounded flex items-center justify-center cursor-pointer transition-all relative group shadow-2xl ${
-            item ? 'border-amber-500/40 bg-amber-950/20' : 'border-slate-800 bg-black/60'
+            selected 
+                ? 'border-amber-400 bg-amber-900/30 ring-2 ring-amber-500/50' 
+                : item 
+                    ? 'border-amber-500/40 bg-amber-950/20' 
+                    : 'border-slate-800 bg-black/60 hover:border-slate-600'
         }`}
     >
         <span className="text-3xl filter drop-shadow-lg opacity-80 group-hover:opacity-100 transition-all">
@@ -229,8 +299,185 @@ const EquipmentSlotIcon: React.FC<{ type: EquipmentSlot; item: Item | null; onCl
     </div>
 );
 
+const InventoryModal: React.FC<{
+    character: Character;
+    onEquip: (item: Item) => void;
+    onUnequip: (slot: EquipmentSlot) => void;
+    onUse: (item: Item) => void;
+    onClose: () => void;
+}> = ({ character, onEquip, onUnequip, onUse, onClose }) => {
+    const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+
+    return (
+        <div className="absolute inset-0 z-[200] bg-black/90 backdrop-blur-lg flex items-center justify-center animate-in fade-in duration-300">
+            <div className="w-full max-w-5xl h-[80vh] ui-panel border-[#444] rounded-sm flex flex-col relative shadow-[0_0_100px_rgba(0,0,0,0.8)]">
+                {/* Header */}
+                <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0d0d10]">
+                    <div className="flex items-center gap-4">
+                        <span className="exocet-font text-3xl text-amber-500 uppercase tracking-[0.2em] rune-glow-gold">Equipment</span>
+                        <div className="h-6 w-[1px] bg-white/10"></div>
+                        <span className="text-slate-500 font-serif italic text-sm">Manage your gear and artifacts</span>
+                    </div>
+                    <button onClick={onClose} className="text-slate-500 hover:text-red-400 text-sm font-black uppercase tracking-widest transition-colors">Close ✕</button>
+                </div>
+
+                <div className="flex-1 flex overflow-hidden">
+                    {/* Left: Paper Doll / Stats */}
+                    <div className="w-1/3 p-8 border-r border-white/5 bg-[#0a0a0c] flex flex-col items-center overflow-y-auto">
+                        <div className="relative w-64 h-80 mb-8">
+                             {/* Equipment Grid Layout */}
+                             <div className="absolute top-0 left-1/2 -translate-x-1/2"><EquipmentSlotIcon type="HELM" item={character.equipment.HELM} onClick={() => character.equipment.HELM && onUnequip('HELM')} /></div>
+                             <div className="absolute top-20 left-1/2 -translate-x-1/2"><EquipmentSlotIcon type="CHEST" item={character.equipment.CHEST} onClick={() => character.equipment.CHEST && onUnequip('CHEST')} /></div>
+                             <div className="absolute top-20 left-4"><EquipmentSlotIcon type="GLOVES" item={character.equipment.GLOVES} onClick={() => character.equipment.GLOVES && onUnequip('GLOVES')} /></div>
+                             <div className="absolute top-20 right-4"><EquipmentSlotIcon type="AMULET" item={character.equipment.AMULET} onClick={() => character.equipment.AMULET && onUnequip('AMULET')} /></div>
+                             <div className="absolute top-40 left-0"><EquipmentSlotIcon type="WEAPON" item={character.equipment.WEAPON} onClick={() => character.equipment.WEAPON && onUnequip('WEAPON')} /></div>
+                             <div className="absolute top-40 right-0"><EquipmentSlotIcon type="OFFHAND" item={character.equipment.OFFHAND} onClick={() => character.equipment.OFFHAND && onUnequip('OFFHAND')} /></div>
+                             <div className="absolute top-40 left-1/2 -translate-x-1/2"><EquipmentSlotIcon type="BELT" item={character.equipment.BELT} onClick={() => character.equipment.BELT && onUnequip('BELT')} /></div>
+                             <div className="absolute bottom-0 left-10"><EquipmentSlotIcon type="RING1" item={character.equipment.RING1} onClick={() => character.equipment.RING1 && onUnequip('RING1')} /></div>
+                             <div className="absolute bottom-0 right-10"><EquipmentSlotIcon type="RING2" item={character.equipment.RING2} onClick={() => character.equipment.RING2 && onUnequip('RING2')} /></div>
+                             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-2"><EquipmentSlotIcon type="BOOTS" item={character.equipment.BOOTS} onClick={() => character.equipment.BOOTS && onUnequip('BOOTS')} /></div>
+                        </div>
+
+                        {/* Summary Stats */}
+                        <div className="w-full space-y-2">
+                             <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-4 text-center">Combat Statistics</div>
+                             <div className="flex justify-between p-2 bg-white/5 rounded border border-white/5">
+                                 <span className="text-xs text-slate-400 font-bold">ATTACK</span>
+                                 <span className="text-xs text-amber-500 font-bold">{character.attack}</span>
+                             </div>
+                             <div className="flex justify-between p-2 bg-white/5 rounded border border-white/5">
+                                 <span className="text-xs text-slate-400 font-bold">DEFENSE</span>
+                                 <span className="text-xs text-slate-200 font-bold">{character.defense}</span>
+                             </div>
+                             <div className="flex justify-between p-2 bg-white/5 rounded border border-white/5">
+                                 <span className="text-xs text-slate-400 font-bold">MAGIC</span>
+                                 <span className="text-xs text-blue-400 font-bold">{character.magic}</span>
+                             </div>
+                             <div className="flex justify-between p-2 bg-white/5 rounded border border-white/5">
+                                 <span className="text-xs text-slate-400 font-bold">CRIT</span>
+                                 <span className="text-xs text-yellow-400 font-bold">{character.crit}%</span>
+                             </div>
+                        </div>
+                    </div>
+
+                    {/* Right: Inventory Grid */}
+                    <div className="flex-1 p-8 bg-[#111115] flex flex-col">
+                        <div className="flex-1 overflow-y-auto mb-6">
+                            <h3 className="text-xs text-slate-500 font-black uppercase tracking-widest mb-4">Inventory ({character.inventory.length})</h3>
+                            {character.inventory.length === 0 ? (
+                                <div className="text-slate-600 italic text-center py-20">Your satchel is empty.</div>
+                            ) : (
+                                <div className="grid grid-cols-5 gap-3">
+                                    {character.inventory.map(item => (
+                                        <div 
+                                            key={item.id}
+                                            onClick={() => setSelectedItem(item)}
+                                            className={`aspect-square border rounded p-2 flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-white/5 relative group ${
+                                                selectedItem?.id === item.id 
+                                                    ? 'border-amber-500 bg-amber-900/10 shadow-[0_0_15px_rgba(245,158,11,0.2)]' 
+                                                    : 'border-[#333] bg-black/40'
+                                            }`}
+                                        >
+                                            <span className="text-3xl mb-1">{item.icon}</span>
+                                            <span className={`text-[8px] font-black uppercase tracking-tighter truncate w-full text-center ${
+                                                item.rarity === 'LEGENDARY' ? 'text-amber-500' :
+                                                item.rarity === 'RARE' ? 'text-blue-400' :
+                                                item.rarity === 'UNCOMMON' ? 'text-green-500' : 'text-slate-400'
+                                            }`}>{item.name}</span>
+                                            {item.type === 'POTION' && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-500"></div>}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Item Details Panel */}
+                        <div className="h-40 border-t border-white/10 pt-6 flex gap-6">
+                            {selectedItem ? (
+                                <>
+                                    <div className="w-24 h-24 bg-black/40 border border-[#333] rounded flex items-center justify-center text-5xl shrink-0">
+                                        {selectedItem.icon}
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <h4 className={`text-lg font-bold exocet-font uppercase tracking-wider ${
+                                                    selectedItem.rarity === 'LEGENDARY' ? 'text-amber-500 rune-glow-gold' :
+                                                    selectedItem.rarity === 'RARE' ? 'text-blue-400' :
+                                                    selectedItem.rarity === 'UNCOMMON' ? 'text-green-500' : 'text-slate-200'
+                                                }`}>{selectedItem.name}</h4>
+                                                <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{selectedItem.type} • {selectedItem.rarity}</span>
+                                            </div>
+                                            <div className="text-amber-500 font-bold text-sm">
+                                                {selectedItem.value} <span className="text-[10px]">GOLD</span>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-slate-400 italic font-serif mb-3">"{selectedItem.description}"</p>
+                                        
+                                        {/* Item Stats display */}
+                                        <div className="flex gap-4 text-[10px] font-mono text-slate-300 mb-3">
+                                            {selectedItem.stats?.atk && <span>ATK +{selectedItem.stats.atk}</span>}
+                                            {selectedItem.stats?.def && <span>DEF +{selectedItem.stats.def}</span>}
+                                            {selectedItem.stats?.hp && <span className="text-red-400">HP +{selectedItem.stats.hp}</span>}
+                                            {selectedItem.stats?.crit && <span className="text-yellow-400">CRIT +{selectedItem.stats.crit}%</span>}
+                                        </div>
+
+                                        <div className="flex gap-3">
+                                            {selectedItem.type === 'POTION' ? (
+                                                <button onClick={() => { onUse(selectedItem); setSelectedItem(null); }} className="px-6 py-2 bg-red-900/50 hover:bg-red-800 border border-red-700/50 text-red-100 text-xs font-black uppercase tracking-widest rounded transition-all">
+                                                    Consume
+                                                </button>
+                                            ) : (
+                                                <button onClick={() => { onEquip(selectedItem); setSelectedItem(null); }} className="px-6 py-2 bg-amber-900/30 hover:bg-amber-800/50 border border-amber-700/50 text-amber-100 text-xs font-black uppercase tracking-widest rounded transition-all">
+                                                    Equip
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="w-full flex items-center justify-center text-slate-600 text-sm italic">
+                                    Select an item to view details...
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const updateCharacterStats = (char: Character, item: Item, isEquipping: boolean): Character => {
+    const mod = isEquipping ? 1 : -1;
+    const stats = item.stats || {};
+    
+    // HP and Mana logic: changing max affects max. Current is clamped.
+    const newMaxHp = char.maxHp + (stats.hp || 0) * mod;
+    const newMaxMana = char.maxMana + (stats.mana || 0) * mod;
+    
+    return {
+        ...char,
+        maxHp: newMaxHp,
+        hp: Math.min(char.hp, newMaxHp), // Clamp HP if max decreases
+        maxMana: newMaxMana,
+        mana: Math.min(char.mana, newMaxMana),
+        attack: char.attack + (stats.atk || 0) * mod,
+        defense: char.defense + (stats.def || 0) * mod,
+        magic: char.magic + (stats.mag || 0) * mod,
+        crit: char.crit + (stats.crit || 0) * mod,
+        attributes: {
+            str: char.attributes.str + (stats.str || 0) * mod,
+            dex: char.attributes.dex + (stats.dex || 0) * mod,
+            vit: char.attributes.vit + (stats.vit || 0) * mod,
+            int: char.attributes.int + (stats.int || 0) * mod,
+            cha: char.attributes.cha + (stats.cha || 0) * mod,
+        }
+    };
+};
+
 const App: React.FC = () => {
-  const [gameState, setGameState] = useState<'CREATION' | 'ADVENTURE'>('CREATION');
+  const [gameState, setGameState] = useState<'CREATION' | 'ADVENTURE' | 'GAME_OVER'>('CREATION');
   const [showLore, setShowLore] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   
@@ -261,7 +508,8 @@ const App: React.FC = () => {
   useEffect(() => {
     if (character) {
         localStorage.setItem('runebound_hero_v3', JSON.stringify(character));
-        setGameState('ADVENTURE');
+        // If we are just loading in and have a char but no room, game state needs to set
+        if (gameState === 'CREATION') setGameState('ADVENTURE');
     }
   }, [character]);
 
@@ -294,7 +542,11 @@ const App: React.FC = () => {
       attack: data.atk, magic: data.mag, defense: data.def,
       crit: data.crit, gold: 80,
       attributes: { ...data.attributes },
-      inventory: [],
+      inventory: [
+          // Starter Gear
+          { id: 'start_pot_1', name: 'Minor Health Potion', type: 'POTION', rarity: 'COMMON', value: 10, description: 'Restores 40 HP', weightClass: 'NONE', effect: { type: 'HEAL', value: 40 }, icon: '🧪' },
+          { id: 'start_pot_2', name: 'Minor Health Potion', type: 'POTION', rarity: 'COMMON', value: 10, description: 'Restores 40 HP', weightClass: 'NONE', effect: { type: 'HEAL', value: 40 }, icon: '🧪' }
+      ],
       equipment: {
           HELM: null, CHEST: null, GLOVES: null, BOOTS: null, 
           OFFHAND: null, AMULET: null, BELT: null, 
@@ -305,6 +557,16 @@ const App: React.FC = () => {
     setSkills(data.skills.map(id => ({ ...SKILL_LIBRARY[id] })));
     setGameState('ADVENTURE');
     setVisitedRooms({});
+  };
+
+  const handleRestart = () => {
+      localStorage.removeItem('runebound_hero_v3');
+      localStorage.removeItem('runebound_map_v3');
+      setCharacter(null);
+      setCurrentRoom(null);
+      setVisitedRooms({});
+      setGameState('CREATION');
+      setLogs(["A new soul awakens..."]);
   };
 
   useEffect(() => {
@@ -321,7 +583,12 @@ const App: React.FC = () => {
         if (!prev) return null;
         const enemyDmg = Math.max(2, Math.floor(currentEnemy.attack * (0.7 + Math.random() * 0.6)) - prev.defense);
         const newHp = Math.max(0, prev.hp - enemyDmg);
-        if (newHp === 0) handleDefeat();
+        if (newHp === 0) {
+            // Need to set game over state inside the interval, careful with state updates
+            clearInterval(combatTimer);
+            setGameState('GAME_OVER');
+            return { ...prev, hp: 0 };
+        }
         return { ...prev, hp: newHp };
       });
     }, 1800);
@@ -331,25 +598,37 @@ const App: React.FC = () => {
   const handleVictory = (enemy: Enemy) => {
     setIsCombatActive(false);
     addLog(`The ${enemy.name} has been vanquished.`);
+    
+    // Generate Loot Drops
+    const drops = Gemini.generateLoot(currentRoom?.depth || 1, 'ENEMY');
+    if (drops.length > 0) {
+        addLog(`Looted ${drops.map(d => d.name).join(', ')}`);
+    }
+
     setCharacter(prev => {
       if (!prev) return null;
       let nextXp = prev.xp + enemy.rewardXp;
       let level = prev.level;
       let xpToNext = prev.xpToNext;
+      // Simple Level Up logic: stats increase slightly
       if (nextXp >= xpToNext) {
         level++; nextXp -= xpToNext; xpToNext = Math.floor(xpToNext * 1.5);
         addLog(`Power surges through you. Level ${level} reached.`);
+        return { 
+            ...prev, 
+            xp: nextXp, level, xpToNext, 
+            gold: prev.gold + enemy.rewardGold, 
+            hp: prev.maxHp, mana: prev.maxMana,
+            inventory: [...prev.inventory, ...drops]
+        };
       }
-      return { ...prev, xp: nextXp, level, xpToNext, gold: prev.gold + enemy.rewardGold };
+      return { 
+          ...prev, 
+          xp: nextXp, level, xpToNext, 
+          gold: prev.gold + enemy.rewardGold,
+          inventory: [...prev.inventory, ...drops]
+      };
     });
-  };
-
-  const handleDefeat = () => {
-      setIsCombatActive(false);
-      setCurrentEnemy(null);
-      setCharacter(null);
-      setGameState('CREATION');
-      alert("Death claims you.");
   };
 
   const useSkill = (skill: Skill) => {
@@ -367,6 +646,95 @@ const App: React.FC = () => {
         return { ...prev, hp: newHp };
     });
     setSkills(prev => prev.map(s => s.id === skill.id ? { ...s, lastUsed: now } : s));
+  };
+
+  const handleEquip = (item: Item) => {
+    if (!character) return;
+    // Determine slot
+    let slot: EquipmentSlot | null = null;
+    if (item.type === 'RING') {
+        if (!character.equipment.RING1) slot = 'RING1';
+        else if (!character.equipment.RING2) slot = 'RING2';
+        else slot = 'RING1'; // Default to swapping Ring 1
+    } else if (['HELM', 'CHEST', 'GLOVES', 'BOOTS', 'OFFHAND', 'AMULET', 'BELT', 'WEAPON'].includes(item.type)) {
+        slot = item.type as EquipmentSlot;
+    }
+
+    if (!slot) return;
+
+    const currentEquip = character.equipment[slot];
+    let newChar = { ...character };
+
+    // 1. Remove item from inventory
+    newChar.inventory = newChar.inventory.filter(i => i.id !== item.id);
+
+    // 2. If something equipped, unequip it first (stats removed)
+    if (currentEquip) {
+        newChar = updateCharacterStats(newChar, currentEquip, false); // remove stats
+        newChar.inventory.push(currentEquip);
+    }
+
+    // 3. Equip new item (stats added)
+    newChar = updateCharacterStats(newChar, item, true);
+    newChar.equipment[slot] = item;
+
+    setCharacter(newChar);
+    addLog(`Equipped ${item.name}.`);
+  };
+
+  const handleUnequip = (slot: EquipmentSlot) => {
+      if (!character || !character.equipment[slot]) return;
+      const item = character.equipment[slot]!;
+      let newChar = { ...character };
+
+      newChar = updateCharacterStats(newChar, item, false); // remove stats
+      newChar.equipment[slot] = null;
+      newChar.inventory.push(item);
+
+      setCharacter(newChar);
+      addLog(`Unequipped ${item.name}.`);
+  };
+
+  const handleUseItem = (item: Item) => {
+      if (!character) return;
+      if (item.type === 'POTION') {
+          // Consume
+          let newChar = { ...character };
+          if (item.effect?.type === 'HEAL') {
+              const heal = item.effect.value;
+              newChar.hp = Math.min(newChar.maxHp, newChar.hp + heal);
+              addLog(`Used ${item.name}. Healed for ${heal} HP.`);
+          } else if (item.effect?.type === 'MANA') {
+              const mana = item.effect.value;
+              newChar.mana = Math.min(newChar.maxMana, newChar.mana + mana);
+              addLog(`Used ${item.name}. Restored ${mana} Mana.`);
+          }
+          newChar.inventory = newChar.inventory.filter(i => i.id !== item.id);
+          setCharacter(newChar);
+      } else {
+          // It's equipment, try to equip
+          handleEquip(item);
+      }
+  };
+
+  const handleLootChest = () => {
+      if (!currentRoom?.encounterData?.loot || !character) return;
+      const items = currentRoom.encounterData.loot;
+      const gold = currentRoom.encounterData.goldReward || 0;
+      
+      const newChar = { ...character, gold: character.gold + gold, inventory: [...character.inventory, ...items] };
+      setCharacter(newChar);
+      
+      // Update room so chest is opened
+      const updatedRoom = { 
+          ...currentRoom, 
+          encounterData: { ...currentRoom.encounterData, loot: undefined, chestOpened: true },
+          description: "An empty chest sits here, its treasures claimed."
+      };
+      setCurrentRoom(updatedRoom);
+      setVisitedRooms(prev => ({ ...prev, [`${updatedRoom.x},${updatedRoom.y}`]: updatedRoom }));
+      
+      addLog(`Looted ${items.map(i => i.name).join(', ')} and ${gold} Gold!`);
   };
 
   const handleChoice = async (choice: PathChoice) => {
@@ -590,6 +958,29 @@ const App: React.FC = () => {
     );
   }
 
+  if (gameState === 'GAME_OVER') {
+      return (
+          <div className="relative w-full h-screen bg-black flex flex-col items-center justify-center font-serif text-slate-200">
+             <div className="absolute inset-0 bg-red-950/20 pointer-events-none"></div>
+             <h1 className="text-8xl exocet-font text-red-600 tracking-[0.2em] mb-4 drop-shadow-[0_0_20px_rgba(255,0,0,0.5)] animate-in fade-in zoom-in duration-1000">YOU DIED</h1>
+             <p className="text-xl italic text-slate-500 mb-8 font-serif">Your soul fades into the abyss...</p>
+             <div className="flex gap-12 mb-12">
+                 <div className="text-center">
+                     <div className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-600 mb-1">Level Reached</div>
+                     <div className="text-4xl font-bold text-amber-500">{character?.level}</div>
+                 </div>
+                 <div className="text-center">
+                     <div className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-600 mb-1">Gold Collected</div>
+                     <div className="text-4xl font-bold text-amber-500">{character?.gold}</div>
+                 </div>
+             </div>
+             <button onClick={handleRestart} className="px-12 py-4 ui-panel border-[#444] hover:border-amber-500 text-slate-300 hover:text-amber-100 transition-all uppercase tracking-[0.3em] text-sm font-bold z-10">
+                 Try Again
+             </button>
+          </div>
+      );
+  }
+
   if (!character) return null;
 
   return (
@@ -601,6 +992,16 @@ const App: React.FC = () => {
              <div className="text-6xl text-amber-500 animate-pulse exocet-font mb-4 tracking-[0.5em]">ᚠᚢᚦᚨᚱᚲ</div>
              <div className="exocet-font text-xl text-slate-500 tracking-[0.2em] uppercase">Divining the Path</div>
         </div>
+      )}
+
+      {showInventory && (
+          <InventoryModal 
+              character={character} 
+              onEquip={handleEquip} 
+              onUnequip={handleUnequip} 
+              onUse={handleUseItem}
+              onClose={() => setShowInventory(false)} 
+          />
       )}
 
       {/* COMPACT HUD */}
@@ -618,7 +1019,7 @@ const App: React.FC = () => {
                   <div className="ui-panel bg-black/90 border-[#333] p-3 flex items-center gap-6 rounded-sm shadow-xl">
                       <div className="flex flex-col w-32">
                           <div className="flex justify-between text-[8px] font-black mb-1.5 text-red-500 tracking-[0.1em] uppercase">
-                             <span>HP</span> <span>{Math.floor(character.hp)}</span>
+                             <span>HP</span> <span>{Math.floor(character.hp)} / {character.maxHp}</span>
                           </div>
                           <div className="h-2 bg-black/50 border border-white/5 rounded-full overflow-hidden bar-shimmer">
                              <div className="h-full bg-gradient-to-r from-red-950 to-red-600 shadow-[0_0_8px_rgba(255,0,0,0.4)] transition-all duration-500" style={{width: `${(character.hp / character.maxHp)*100}%`}}></div>
@@ -626,7 +1027,7 @@ const App: React.FC = () => {
                       </div>
                       <div className="flex flex-col w-32">
                           <div className="flex justify-between text-[8px] font-black mb-1.5 text-blue-500 tracking-[0.1em] uppercase">
-                             <span>MP</span> <span>{Math.floor(character.mana)}</span>
+                             <span>MP</span> <span>{Math.floor(character.mana)} / {character.maxMana}</span>
                           </div>
                           <div className="h-2 bg-black/50 border border-white/5 rounded-full overflow-hidden bar-shimmer">
                              <div className="h-full bg-gradient-to-r from-blue-950 to-blue-600 shadow-[0_0_8px_rgba(0,0,255,0.4)] transition-all duration-500" style={{width: `${(character.mana / character.maxMana)*100}%`}}></div>
@@ -645,7 +1046,7 @@ const App: React.FC = () => {
                  <span className="text-xl text-amber-500 font-bold exocet-font rune-glow-gold">᚛{biome[0]}᚜</span>
               </div>
               <div className="flex gap-2 h-14">
-                 <button className="px-5 ui-panel bg-[#1a1a20] border-[#444] text-[10px] text-amber-500 font-black uppercase tracking-[0.2em] hover:text-white hover:border-amber-600 transition-all rounded shadow-lg">Skills</button>
+                 <button className="px-5 ui-panel bg-[#1a1a20] border-[#444] text-[10px] text-amber-500 font-black uppercase tracking-[0.2em] hover:text-white hover:border-amber-600 transition-all rounded shadow-lg opacity-50 cursor-not-allowed">Skills</button>
                  <button onClick={() => setShowInventory(true)} className="px-5 ui-panel bg-[#1a1a20] border-[#444] text-[10px] text-amber-500 font-black uppercase tracking-[0.2em] hover:text-white hover:border-amber-600 transition-all rounded shadow-lg">Gear</button>
               </div>
          </div>
@@ -677,6 +1078,13 @@ const App: React.FC = () => {
                     <p className="text-slate-300 text-sm max-w-2xl mx-auto font-serif italic text-shadow-xl opacity-80 leading-relaxed text-center">
                         {currentRoom?.description}
                     </p>
+                    {currentRoom?.encounterType === EncounterType.TREASURE && !currentRoom.encounterData?.chestOpened && (
+                        <div className="mt-4 pointer-events-auto">
+                            <button onClick={handleLootChest} className="px-8 py-3 bg-amber-900/40 border border-amber-600/50 text-amber-100 uppercase font-black tracking-widest hover:bg-amber-800/60 transition-all shadow-[0_0_20px_rgba(245,158,11,0.2)] animate-pulse">
+                                Open Chest
+                            </button>
+                        </div>
+                    )}
                     <div className="w-60 h-[1px] bg-gradient-to-r from-transparent via-amber-700/50 to-transparent mx-auto"></div>
                 </div>
                 

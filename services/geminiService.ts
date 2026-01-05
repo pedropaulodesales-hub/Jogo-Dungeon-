@@ -68,58 +68,128 @@ const PATH_DESCRIPTIONS = [
   "A corridor echoing with distant chimes."
 ];
 
-// --- ITEM GENERATION CONFIG ---
+// --- ADVANCED ITEM GENERATION CONFIG ---
 
-const ITEM_PREFIXES = ["Broken", "Rusty", "Iron", "Steel", "Reinforced", "Enchanted", "Runic", "Void", "Divine", "Godly"];
+// Affixes modify name and stats
+const PREFIXES = [
+  { name: "Broken", stat: "atk", mod: 0.5, rarity: "COMMON" },
+  { name: "Rusted", stat: "def", mod: 0.6, rarity: "COMMON" },
+  { name: "Dull", stat: "atk", mod: 0.8, rarity: "COMMON" },
+  { name: "Iron", stat: "def", mod: 1.0, rarity: "COMMON" },
+  { name: "Steel", stat: "atk", mod: 1.1, rarity: "UNCOMMON" },
+  { name: "Reinforced", stat: "def", mod: 1.2, rarity: "UNCOMMON" },
+  { name: "Serrated", stat: "atk", mod: 1.2, rarity: "UNCOMMON" },
+  { name: "Hardened", stat: "def", mod: 1.3, rarity: "RARE" },
+  { name: "Mithril", stat: "mag", mod: 1.3, rarity: "RARE" },
+  { name: "Adamant", stat: "def", mod: 1.5, rarity: "RARE" },
+  { name: "Void-Forged", stat: "atk", mod: 1.6, rarity: "LEGENDARY" },
+  { name: "Divine", stat: "mag", mod: 1.6, rarity: "LEGENDARY" },
+  { name: "Runebound", stat: "mana", mod: 20, isFlat: true, rarity: "RARE" }
+];
+
+const SUFFIXES = [
+  { name: "of the Bear", stat: "vit", mod: 2, rarity: "UNCOMMON" },
+  { name: "of the Owl", stat: "int", mod: 2, rarity: "UNCOMMON" },
+  { name: "of the Wolf", stat: "dex", mod: 2, rarity: "UNCOMMON" },
+  { name: "of the Bull", stat: "str", mod: 2, rarity: "UNCOMMON" },
+  { name: "of Vitality", stat: "hp", mod: 20, rarity: "COMMON" },
+  { name: "of Power", stat: "atk", mod: 3, rarity: "RARE" },
+  { name: "of Swiftness", stat: "crit", mod: 2, rarity: "RARE" },
+  { name: "of the Void", stat: "mag", mod: 4, rarity: "LEGENDARY" },
+  { name: "of Kings", stat: "cha", mod: 3, rarity: "RARE" },
+];
+
+const UNIQUE_ITEMS: Partial<Item>[] = [
+    { name: "Widowmaker", type: "WEAPON", rarity: "LEGENDARY", description: "A crimson blade that seems to weep blood.", icon: "🗡️", stats: { atk: 45, crit: 10, str: 5 } },
+    { name: "Aegis of the Immortals", type: "OFFHAND", rarity: "LEGENDARY", description: "A shield polished to a mirror sheen, deflecting fate itself.", icon: "🛡️", stats: { def: 30, hp: 100, vit: 8 } },
+    { name: "Crown of Madness", type: "HELM", rarity: "LEGENDARY", description: "Whispers fill the mind of whoever wears this jagged circlet.", icon: "👑", stats: { mag: 25, int: 10, mana: 50, def: -5 } },
+    { name: "Boots of Haste", type: "BOOTS", rarity: "RARE", description: "You feel lighter on your feet.", icon: "👢", stats: { dex: 5, dodge: 10, def: 5 } },
+    { name: "Ring of Greed", type: "RING", rarity: "UNCOMMON", description: "A gold band that feels heavy.", icon: "💍", stats: { cha: 5, crit: 2 } },
+    { name: "Tome of Lost Knowledge", type: "OFFHAND", rarity: "RARE", description: "Pages filled with shifting runes.", icon: "📖", stats: { mag: 15, int: 8, mana: 30 } }
+];
 
 const ARMOR_DATA = {
     LIGHT: {
-        HELM: ["Leather Cap", "Hood", "Bandana"],
-        CHEST: ["Leather Armor", "Tunic", "Vest"],
-        GLOVES: ["Leather Gloves", "Wraps"],
-        BOOTS: ["Sandals", "Soft Boots"]
+        HELM: ["Hood", "Cap", "Mask", "Cowl"],
+        CHEST: ["Tunic", "Vest", "Jerkin", "Robes"],
+        GLOVES: ["Wraps", "Gloves", "Handguards"],
+        BOOTS: ["Sandals", "Shoes", "Boots", "Walkers"]
     },
     MEDIUM: {
-        HELM: ["Chain Coif", "Soldier Helm"],
-        CHEST: ["Chainmail", "Scale Mail", "Breastplate"],
-        GLOVES: ["Bracers", "Chain Gloves"],
-        BOOTS: ["Leather Boots", "Reinforced Boots"]
+        HELM: ["Coif", "Sallet", "Helm"],
+        CHEST: ["Chainmail", "Brigandine", "Scale"],
+        GLOVES: ["Vambraces", "Mitts"],
+        BOOTS: ["Greaves", "Striders"]
     },
     HEAVY: {
-        HELM: ["Iron Helm", "Great Helm", "Visor"],
-        CHEST: ["Plate Armor", "Cuirass", "Heavy Plate"],
-        GLOVES: ["Gauntlets", "Plate Gauntlets"],
-        BOOTS: ["Plated Boots", "Greaves"]
+        HELM: ["Greathelm", "Visor", "Bascinet"],
+        CHEST: ["Plate", "Cuirass", "Breastplate"],
+        GLOVES: ["Gauntlets", "Fists"],
+        BOOTS: ["Sabatons", "Iron Boots"]
     }
 };
 
 const WEAPON_DATA: Record<PlayerClass, string[]> = {
-    WARRIOR: ["Long Sword", "Claymore", "Bastard Sword", "Battle Axe", "Mace"],
-    BARBARIAN: ["Battle Axe", "Great Axe", "Warhammer", "Maul"],
-    MAGE: ["Staff", "Wand", "Arcane Staff"],
-    CLERIC: ["Staff", "Mace", "Holy Mace", "Flail"],
-    ROGUE: ["Dagger", "Rapier", "Stiletto", "Kris"],
-    ARCHER: ["Bow", "Crossbow", "Longbow", "Composite Bow"]
+    WARRIOR: ["Longsword", "Broadsword", "Mace", "Waraxe"],
+    BARBARIAN: ["Greataxe", "Maul", "Zweihander", "Club"],
+    MAGE: ["Staff", "Wand", "Scepter", "Rod"],
+    CLERIC: ["Morningstar", "Hammer", "Censer", "Staff"],
+    ROGUE: ["Dagger", "Kris", "Shortsword", "Kukri"],
+    ARCHER: ["Shortbow", "Longbow", "Crossbow", "Recurve"]
 };
 
-const OFFHAND_DATA = ["Buckler", "Kite Shield", "Tower Shield", "Orb", "Tome"];
-const ACCESSORY_DATA = {
-    AMULET: ["Amulet", "Pendant", "Necklace"],
-    BELT: ["Leather Belt", "Sash", "Girdle"],
-    RING: ["Ring", "Signet", "Band"]
+const ACCESSORY_NAMES = {
+    AMULET: ["Amulet", "Pendant", "Necklace", "Talisman", "Charm"],
+    BELT: ["Belt", "Sash", "Girdle", "Cinch", "Waistguard"],
+    RING: ["Ring", "Band", "Signet", "Loop", "Coil"]
 };
 
 function getRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function generateItem(depth: number, forceType?: 'POTION'): Item {
-    const isPotion = forceType === 'POTION' || Math.random() < 0.25;
+// --- LOOT GENERATION LOGIC ---
+
+export function generateLoot(depth: number, source: 'CHEST' | 'ENEMY' | 'BOSS' | 'MERCHANT'): Item[] {
+    const drops: Item[] = [];
+    let count = 0;
+
+    // Determine count based on source
+    if (source === 'BOSS') count = Math.floor(Math.random() * 3) + 2; // 2-4 items
+    else if (source === 'CHEST') count = Math.floor(Math.random() * 2) + 1; // 1-2 items
+    else if (source === 'MERCHANT') count = 4;
+    else count = Math.random() < 0.4 ? 1 : 0; // 40% chance for trash mobs
+
+    for (let i = 0; i < count; i++) {
+        const uniqueRoll = Math.random();
+        // Higher unique chance for bosses or high depth
+        const uniqueThreshold = source === 'BOSS' ? 0.15 : 0.02 + (depth * 0.005);
+        
+        if (uniqueRoll < uniqueThreshold) {
+            const template = getRandom(UNIQUE_ITEMS);
+            drops.push({
+                ...template,
+                id: Math.random().toString(36).substr(2, 9),
+                value: (template.value || 200) + (depth * 50),
+                type: template.type as ItemType,
+                rarity: 'LEGENDARY',
+                weightClass: 'NONE', // Simplified for uniques
+            } as Item);
+        } else {
+            drops.push(generateProceduralItem(depth, source));
+        }
+    }
     
-    // POTIONS
+    return drops;
+}
+
+function generateProceduralItem(depth: number, source: string): Item {
+    const isPotion = Math.random() < 0.20;
+    
+    // POTION LOGIC
     if (isPotion) {
         const isHealth = Math.random() > 0.5;
-        const tier = Math.floor(depth / 3) + 1;
+        const tier = Math.min(3, Math.floor(depth / 3) + 1);
         const size = tier === 1 ? 'Minor' : tier === 2 ? 'Regular' : 'Greater';
         return {
             id: Math.random().toString(36).substr(2, 9),
@@ -129,102 +199,124 @@ function generateItem(depth: number, forceType?: 'POTION'): Item {
             value: 15 * tier,
             description: `Restores ${tier * 40} ${isHealth ? 'HP' : 'Mana'}.`,
             weightClass: 'NONE',
-            effect: {
-                type: isHealth ? 'HEAL' : 'MANA',
-                value: tier * 40
-            },
+            effect: { type: isHealth ? 'HEAL' : 'MANA', value: tier * 40 },
             icon: isHealth ? '🧪' : '⚗️'
         };
     }
 
-    // GEAR GENERATION
-    const rarityRoll = Math.random() + (depth * 0.05);
+    // GEAR LOGIC
+    // 1. Determine Rarity Base
+    const rarityRoll = Math.random() + (depth * 0.05) + (source === 'BOSS' ? 0.3 : 0);
     let rarity: Item['rarity'] = 'COMMON';
-    let multiplier = 1;
-    
-    if (rarityRoll > 0.95) { rarity = 'LEGENDARY'; multiplier = 3; }
-    else if (rarityRoll > 0.8) { rarity = 'RARE'; multiplier = 2; }
-    else if (rarityRoll > 0.5) { rarity = 'UNCOMMON'; multiplier = 1.5; }
+    let statMult = 1;
+    let affixCount = 0;
 
-    const prefix = ITEM_PREFIXES[Math.min(ITEM_PREFIXES.length - 1, Math.floor((depth + (multiplier * 2)) / 3))];
-    const itemRoll = Math.random();
-    
+    if (rarityRoll > 0.98) { rarity = 'LEGENDARY'; statMult = 3; affixCount = 2; }
+    else if (rarityRoll > 0.8) { rarity = 'RARE'; statMult = 2; affixCount = 2; }
+    else if (rarityRoll > 0.5) { rarity = 'UNCOMMON'; statMult = 1.5; affixCount = 1; }
+
+    // 2. Determine Slot
+    const slotRoll = Math.random();
     let type: ItemType;
-    let name = "";
-    let weightClass: ArmorWeight = 'NONE';
-    let classRestrictions: PlayerClass[] | undefined;
+    let baseName = "";
     let icon = "📦";
-    let stats: Item['stats'] = {};
+    let weightClass: ArmorWeight = 'NONE';
+    const stats: Item['stats'] = {};
+    let classRestrictions: PlayerClass[] | undefined;
 
-    const baseStatVal = Math.floor((3 + depth * 1.5) * multiplier);
+    const baseVal = Math.floor((3 + depth * 1.5) * statMult);
 
-    if (itemRoll < 0.3) {
-        // WEAPON
+    if (slotRoll < 0.3) {
+        // Weapon
         type = 'WEAPON';
         const classes = Object.keys(WEAPON_DATA) as PlayerClass[];
         const targetClass = getRandom(classes);
         classRestrictions = [targetClass];
-        name = getRandom(WEAPON_DATA[targetClass]);
-        stats.atk = Math.floor(baseStatVal * 2);
+        baseName = getRandom(WEAPON_DATA[targetClass]);
+        stats.atk = Math.floor(baseVal * 2);
         icon = '⚔️';
-    } else if (itemRoll < 0.7) {
-        // ARMOR (Helm, Chest, Gloves, Boots)
+    } else if (slotRoll < 0.7) {
+        // Armor
         const slots: ItemType[] = ['HELM', 'CHEST', 'GLOVES', 'BOOTS'];
         type = getRandom(slots);
         
-        // Determine Weight Class logic based on Class types for simplicity in generation, 
-        // though items can be generic. Let's make items with specific weights.
         const wRoll = Math.random();
         if (wRoll < 0.33) {
             weightClass = 'LIGHT';
-            classRestrictions = ['ROGUE', 'ARCHER'];
-            name = getRandom(ARMOR_DATA.LIGHT[type as keyof typeof ARMOR_DATA.LIGHT]);
-            stats.def = Math.floor(baseStatVal * 0.5);
-            stats.dodge = 2 * multiplier;
+            baseName = getRandom(ARMOR_DATA.LIGHT[type as keyof typeof ARMOR_DATA.LIGHT]);
+            stats.def = Math.floor(baseVal * 0.5);
+            stats.dodge = Math.floor(baseVal * 0.2);
         } else if (wRoll < 0.66) {
             weightClass = 'MEDIUM';
-            classRestrictions = ['MAGE', 'CLERIC'];
-            name = getRandom(ARMOR_DATA.MEDIUM[type as keyof typeof ARMOR_DATA.MEDIUM]);
-            stats.def = Math.floor(baseStatVal * 0.8);
-            stats.hp = Math.floor(baseStatVal * 5);
+            baseName = getRandom(ARMOR_DATA.MEDIUM[type as keyof typeof ARMOR_DATA.MEDIUM]);
+            stats.def = Math.floor(baseVal * 0.8);
+            stats.hp = Math.floor(baseVal * 2);
         } else {
             weightClass = 'HEAVY';
-            classRestrictions = ['WARRIOR', 'BARBARIAN'];
-            name = getRandom(ARMOR_DATA.HEAVY[type as keyof typeof ARMOR_DATA.HEAVY]);
-            stats.def = Math.floor(baseStatVal * 1.2);
-            // Heavy might reduce dodge or just give high def
+            baseName = getRandom(ARMOR_DATA.HEAVY[type as keyof typeof ARMOR_DATA.HEAVY]);
+            stats.def = Math.floor(baseVal * 1.2);
         }
-        
+
         if (type === 'HELM') icon = '⛑️';
         if (type === 'CHEST') icon = '👕';
         if (type === 'GLOVES') icon = '🧤';
         if (type === 'BOOTS') icon = '👢';
-
-    } else if (itemRoll < 0.85) {
-        // ACCESSORY
+    } else if (slotRoll < 0.9) {
+        // Accessory
         const slots: ItemType[] = ['AMULET', 'BELT', 'RING'];
         type = getRandom(slots);
-        name = getRandom(ACCESSORY_DATA[type as keyof typeof ACCESSORY_DATA]);
-        
-        // Accessories give attributes
-        if (type === 'AMULET') { stats.int = Math.floor(baseStatVal / 2); icon = '📿'; }
-        if (type === 'BELT') { stats.vit = Math.floor(baseStatVal / 2); icon = '🎗️'; }
-        if (type === 'RING') { stats.crit = multiplier; icon = '💍'; }
+        baseName = getRandom(ACCESSORY_NAMES[type as keyof typeof ACCESSORY_NAMES]);
+        if (type === 'AMULET') { stats.int = Math.floor(baseVal * 0.3); icon = '📿'; }
+        if (type === 'BELT') { stats.vit = Math.floor(baseVal * 0.3); icon = '🎗️'; }
+        if (type === 'RING') { stats.crit = Math.floor(Math.random() * 2) + 1; icon = '💍'; }
     } else {
-        // OFFHAND
         type = 'OFFHAND';
-        name = getRandom(OFFHAND_DATA);
-        stats.def = Math.floor(baseStatVal * 0.8);
+        baseName = "Shield";
+        stats.def = baseVal;
         icon = '🛡️';
+    }
+
+    // 3. Apply Affixes
+    let finalName = baseName;
+    
+    // Add Prefix (if allowed)
+    if (affixCount > 0 && Math.random() > 0.3) {
+        const validPrefixes = PREFIXES.filter(p => p.rarity === 'COMMON' || (rarity !== 'COMMON'));
+        const prefix = getRandom(validPrefixes);
+        finalName = `${prefix.name} ${finalName}`;
+        
+        // Apply Mod
+        const statKey = prefix.stat as keyof typeof stats;
+        const currentVal = stats[statKey] || 0;
+        if (prefix.isFlat) {
+             stats[statKey] = currentVal + prefix.mod;
+        } else {
+             // If stat exists, multiply. If not (e.g. adding atk to boots), add base amount
+             stats[statKey] = currentVal > 0 ? Math.floor(currentVal * prefix.mod) : Math.floor(baseVal * 0.3);
+        }
+        
+        // Sometimes upgrade rarity if prefix is cool
+        if (prefix.rarity === 'LEGENDARY') rarity = 'LEGENDARY';
+    }
+
+    // Add Suffix (if allowed)
+    if (affixCount > 1 || (affixCount === 1 && finalName === baseName)) {
+        const validSuffixes = SUFFIXES.filter(s => s.rarity === 'COMMON' || (rarity !== 'COMMON'));
+        const suffix = getRandom(validSuffixes);
+        finalName = `${finalName} ${suffix.name}`;
+        
+        const statKey = suffix.stat as keyof typeof stats;
+        const currentVal = stats[statKey] || 0;
+        stats[statKey] = currentVal + (suffix.mod < 10 ? suffix.mod : suffix.mod); // Simply add for attributes
     }
 
     return {
         id: Math.random().toString(36).substr(2, 9),
-        name: `${prefix} ${name}`,
+        name: finalName,
         type,
         rarity,
-        value: Math.floor(baseStatVal * 10),
-        description: `A ${rarity.toLowerCase()} item found in the depths.`,
+        value: Math.floor(baseVal * 10),
+        description: `A ${rarity.toLowerCase()} item.`,
         weightClass,
         classRestrictions,
         stats,
@@ -232,7 +324,7 @@ function generateItem(depth: number, forceType?: 'POTION'): Item {
     };
 }
 
-// --- GENERATION LOGIC ---
+// --- ROOM & ENEMY GENERATION WRAPPERS ---
 
 export async function generateInitialRoom(biome: string, depth: number): Promise<Room> {
   return generateNextRoom({ 
@@ -262,9 +354,8 @@ export async function generateNextRoom(
   let description = getRandom(FLAVOR_TEXTS);
   
   const rand = Math.random();
-  let encounterType = EncounterType.BATTLE; // Default
+  let encounterType = EncounterType.BATTLE; 
 
-  // Strict Type Selection: BATTLE, TRAP, MERCHANT, TREASURE, PUZZLE, SECRET
   if (riskLevel === 'HIGH') {
       if (rand < 0.50) encounterType = EncounterType.BATTLE;
       else if (rand < 0.70) encounterType = EncounterType.TRAP;
@@ -277,7 +368,6 @@ export async function generateNextRoom(
       else if (rand < 0.90) encounterType = EncounterType.SECRET;
       else encounterType = EncounterType.TREASURE;
   } else {
-      // Medium
       if (rand < 0.40) encounterType = EncounterType.BATTLE;
       else if (rand < 0.55) encounterType = EncounterType.TRAP;
       else if (rand < 0.70) encounterType = EncounterType.PUZZLE;
@@ -285,20 +375,14 @@ export async function generateNextRoom(
       else encounterType = EncounterType.MERCHANT;
   }
 
-  // Populate Specific Encounter Data
   let encounterData: Room['encounterData'] = {};
 
   if (encounterType === EncounterType.MERCHANT) {
       description = getRandom(MERCHANT_FLAVOR);
-      encounterData.merchantStock = [
-          generateItem(depth, 'POTION'),
-          generateItem(depth),
-          generateItem(depth),
-          generateItem(depth)
-      ];
+      encounterData.merchantStock = generateLoot(depth, 'MERCHANT');
   } else if (encounterType === EncounterType.TREASURE) {
-      description = "A magnificent chest sits in the center of the room, awaiting a key or a crowbar.";
-      encounterData.loot = generateItem(depth);
+      description = "A magnificent chest sits in the center of the room.";
+      encounterData.loot = generateLoot(depth, 'CHEST');
       encounterData.goldReward = Math.floor(Math.random() * 50 * depth) + 50;
       encounterData.chestOpened = false;
   } else if (encounterType === EncounterType.PUZZLE) {
@@ -309,7 +393,7 @@ export async function generateNextRoom(
       encounterData.secretFound = false;
       encounterData.goldReward = Math.floor(Math.random() * 100 * depth) + 100;
   } else if (encounterType === EncounterType.TRAP) {
-      description = "The floor here is uneven, and small holes line the walls at waist height.";
+      description = "The floor here is uneven, and small holes line the walls.";
       encounterData.trapDisarmed = false;
   }
 
