@@ -54,12 +54,12 @@ const StatusIcon: React.FC<{ type: StatusType; duration: number }> = ({ type, du
 const ActionGauge: React.FC<{ value: number; color?: string; label?: string; textColor?: string }> = ({ value, color = "bg-white", label, textColor = "text-slate-400" }) => (
     <div className="w-full flex flex-col">
         {label && (
-             <div className="flex justify-between text-[10px] font-black mb-1.5 tracking-[0.2em] uppercase">
+             <div className="flex justify-between text-[9px] font-black mb-1.5 tracking-[0.2em] uppercase">
                 <span className={textColor}>{label}</span>
                 <span className="text-slate-300 font-bold">{Math.floor(value)}%</span>
              </div>
         )}
-        <div className="w-full h-3 bg-black/80 border border-white/10 rounded-full overflow-hidden relative shadow-inner">
+        <div className="w-full h-2 bg-black/80 border border-white/10 rounded-full overflow-hidden relative shadow-inner">
             <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(45deg,transparent,transparent_2px,rgba(255,255,255,0.05)_2px,rgba(255,255,255,0.05)_4px)]"></div>
             <div 
                 className={`h-full ${color} shadow-[0_0_8px_currentColor] transition-all duration-75 ease-linear relative`} 
@@ -1406,8 +1406,8 @@ const App: React.FC = () => {
       <div className="absolute top-0 left-0 right-0 p-6 flex items-start justify-between z-50 pointer-events-none">
          <div className="flex items-start gap-4 pointer-events-auto">
              <div className="relative">
-                 <div className="w-20 h-20 ui-panel rounded border-[#444] shadow-xl flex items-center justify-center overflow-hidden">
-                      <div className="text-5xl filter drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">{CLASS_DATA[character.classType].icon}</div>
+                 <div className="w-16 h-16 ui-panel rounded border-[#444] shadow-xl flex items-center justify-center overflow-hidden">
+                      <div className="text-4xl filter drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">{CLASS_DATA[character.classType].icon}</div>
                  </div>
                  {/* Status Effects Container */}
                  <div className="absolute top-full left-0 mt-2 flex gap-1">
@@ -1418,29 +1418,29 @@ const App: React.FC = () => {
              </div>
              
              <div className="flex flex-col gap-2">
-                  <div className="ui-panel bg-black/80 border-[#333] px-6 py-2 rounded-sm flex items-center gap-3">
-                      <span className="text-amber-100 font-bold tracking-[0.2em] text-xl uppercase exocet-font rune-glow-gold">{character.name}</span>
+                  <div className="ui-panel bg-black/80 border-[#333] px-5 py-1.5 rounded-sm flex items-center gap-3">
+                      <span className="text-amber-100 font-bold tracking-[0.2em] text-lg uppercase exocet-font rune-glow-gold">{character.name}</span>
                       <div className="h-4 w-[1px] bg-white/10"></div>
-                      <span className="text-xs text-slate-500 font-black tracking-[0.15em] uppercase">LV {character.level} {character.classType}</span>
+                      <span className="text-[10px] text-slate-500 font-black tracking-[0.15em] uppercase">LV {character.level} {character.classType}</span>
                   </div>
-                  <div className="ui-panel bg-black/90 border-[#333] p-5 flex items-center gap-8 rounded-sm shadow-xl">
-                      <div className="flex flex-col w-44">
-                          <div className="flex justify-between text-[10px] font-black mb-1.5 text-red-500 tracking-[0.1em] uppercase">
-                             <span>HP</span> <span className="text-xs">{Math.floor(character.hp)} / {character.maxHp}</span>
+                  <div className="ui-panel bg-black/90 border-[#333] p-4 flex items-center gap-6 rounded-sm shadow-xl">
+                      <div className="flex flex-col w-32">
+                          <div className="flex justify-between text-[9px] font-black mb-1.5 text-red-500 tracking-[0.1em] uppercase">
+                             <span>HP</span> <span className="text-[10px]">{Math.floor(character.hp)} / {character.maxHp}</span>
                           </div>
-                          <div className="h-3 bg-black/50 border border-white/5 rounded-full overflow-hidden bar-shimmer">
+                          <div className="h-2 bg-black/50 border border-white/5 rounded-full overflow-hidden bar-shimmer">
                              <div className="h-full bg-gradient-to-r from-red-950 to-red-600 shadow-[0_0_8px_rgba(255,0,0,0.4)] transition-all duration-500" style={{width: `${(character.hp / character.maxHp)*100}%`}}></div>
                           </div>
                       </div>
-                      <div className="flex flex-col w-44">
-                          <div className="flex justify-between text-[10px] font-black mb-1.5 text-blue-500 tracking-[0.1em] uppercase">
-                             <span>MP</span> <span className="text-xs">{Math.floor(character.mana)} / {character.maxMana}</span>
+                      <div className="flex flex-col w-32">
+                          <div className="flex justify-between text-[9px] font-black mb-1.5 text-blue-500 tracking-[0.1em] uppercase">
+                             <span>MP</span> <span className="text-[10px]">{Math.floor(character.mana)} / {character.maxMana}</span>
                           </div>
-                          <div className="h-3 bg-black/50 border border-white/5 rounded-full overflow-hidden bar-shimmer">
+                          <div className="h-2 bg-black/50 border border-white/5 rounded-full overflow-hidden bar-shimmer">
                              <div className="h-full bg-gradient-to-r from-blue-950 to-blue-600 shadow-[0_0_8px_rgba(0,0,255,0.4)] transition-all duration-500" style={{width: `${(character.mana / character.maxMana)*100}%`}}></div>
                           </div>
                       </div>
-                      <div className="flex flex-col w-56">
+                      <div className="flex flex-col w-40">
                           <ActionGauge value={playerAtb} color="bg-amber-400" label="AUTO ATTACK" />
                       </div>
                       <div className="flex items-center gap-2 text-amber-500 font-black text-3xl tracking-[0.05em] ml-2">
