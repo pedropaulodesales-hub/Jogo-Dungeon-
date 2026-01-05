@@ -11,6 +11,12 @@ import {
 import * as Gemini from './services/geminiService';
 import RunePanel from './components/RunePanel';
 
+// --- AUTH & FIREBASE IMPORTS ---
+import { auth, db } from './services/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import AuthScreen from './components/AuthScreen';
+
 // --- Interfaces ---
 
 interface LootVisual {
@@ -606,17 +612,15 @@ const calculateDamage = (attackerAtk: number, defenderDef: number, multiplier: n
 };
 
 const App: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [gameState, setGameState] = useState<'CREATION' | 'ADVENTURE' | 'GAME_OVER'>('CREATION');
   const [showInventory, setShowInventory] = useState(false);
   
   const [creationName, setCreationName] = useState('');
   const [selectedClass, setSelectedClass] = useState<PlayerClass | null>(null);
 
-  const [character, setCharacter] = useState<Character | null>(() => {
-    const saved = localStorage.getItem('runebound_hero_v3');
-    return saved ? JSON.parse(saved) : null;
-  });
-
+  const [character, setCharacter] = useState<Character | null>(null);
   const [visitedRooms, setVisitedRooms] = useState<Record<string, Room>>({});
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
   const [currentEnemy, setCurrentEnemy] = useState<Enemy | null>(null);
@@ -637,11 +641,13 @@ const App: React.FC = () => {
   });
   
   const combatFrameRef = useRef<number>(0);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [skills, setSkills] = useState<Skill[]>([]);
   const [logs, setLogs] = useState<string[]>(["A new soul awakens..."]);
   const [biome, setBiome] = useState(BIOMES[0]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Loot Particle State
   const [lootVisuals, setLootVisuals] = useState<LootVisual[]>([]);
@@ -651,6 +657,93 @@ const App: React.FC = () => {
   useEffect(() => { characterRef.current = character; }, [character]);
   useEffect(() => { enemyRef.current = currentEnemy; }, [currentEnemy]);
   useEffect(() => { combatStateRef.current.isActive = isCombatActive; }, [isCombatActive]);
+
+  // --- AUTH & CLOUD SAVE ---
+
+  // Auth Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        setUser(currentUser);
+        setAuthLoading(false);
+        
+        if (currentUser) {
+            await loadGame(currentUser.uid);
+        } else {
+            // Reset to defaults if logged out
+            setCharacter(null);
+            setGameState('CREATION');
+        }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const loadGame = async (uid: string) => {
+      setIsLoading(true);
+      try {
+          // CLOUD LOAD: Replaces localStorage logic
+          const docRef = doc(db, "users", uid);
+          const docSnap = await getDoc(docRef);
+          
+          if (docSnap.exists()) {
+              const data = docSnap.data();
+              if (data.character) {
+                  // Rehydrate data
+                  setCharacter(data.character);
+                  setVisitedRooms(data.visitedRooms || {});
+                  // If they were in adventure, restore state
+                  if (data.character.hp > 0) {
+                       setGameState('ADVENTURE');
+                       // Restore room logic could go here, but starting fresh room might be safer to prevent stuck states
+                  }
+              }
+          }
+      } catch (err) {
+          console.error("Failed to load save:", err);
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
+  const saveGame = useCallback((force: boolean = false) => {
+      if (!user || !characterRef.current) return;
+      
+      const saveData = {
+          character: characterRef.current,
+          visitedRooms,
+          lastSaved: Date.now()
+      };
+
+      const doSave = async () => {
+          setIsSaving(true);
+          try {
+              // CLOUD SAVE: Syncs to Firestore
+              await setDoc(doc(db, "users", user.uid), saveData, { merge: true });
+          } catch (e) {
+              console.error("Cloud Save Failed", e);
+          } finally {
+              setIsSaving(false);
+          }
+      };
+
+      if (force) {
+          if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+          doSave();
+      } else {
+          // Debounce save (e.g., don't save every frame of combat, save after events)
+          if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+          saveTimeoutRef.current = setTimeout(doSave, 2000);
+      }
+  }, [user, visitedRooms]);
+
+  // Auto-save on major state changes
+  useEffect(() => {
+      if (gameState === 'ADVENTURE' && character) {
+          saveGame();
+      }
+  }, [character?.gold, character?.inventory, character?.xp, currentRoom, gameState, saveGame]);
+
+
+  // --- GAME LOGIC ---
 
   // Loot Particle Animation Loop
   useEffect(() => {
@@ -715,20 +808,7 @@ const App: React.FC = () => {
       });
   };
 
-  useEffect(() => {
-     if (character && Object.keys(visitedRooms).length === 0) {
-         const savedMap = localStorage.getItem('runebound_map_v3');
-         if (savedMap) setVisitedRooms(JSON.parse(savedMap));
-     }
-  }, [character]);
-
-  useEffect(() => {
-    if (character) {
-        localStorage.setItem('runebound_hero_v3', JSON.stringify(character));
-        if (gameState === 'CREATION') setGameState('ADVENTURE');
-    }
-  }, [character]);
-
+  // Adventure Start
   useEffect(() => {
     if (gameState === 'ADVENTURE' && !currentRoom) {
       const startAdventure = async () => {
@@ -740,7 +820,7 @@ const App: React.FC = () => {
       };
       startAdventure();
     }
-  }, [gameState]);
+  }, [gameState, currentRoom]); // Added currentRoom dep to prevent loop but ensure load
 
   const addLog = useCallback((msg: string) => {
     setLogs(prev => [msg, ...prev].slice(0, 50));
@@ -776,8 +856,11 @@ const App: React.FC = () => {
   };
 
   const handleRestart = () => {
-      localStorage.removeItem('runebound_hero_v3');
-      localStorage.removeItem('runebound_map_v3');
+      // Cloud logic: Clear specific user data or just reset state?
+      // For permadeath feel, we should wipe the save.
+      if (user) {
+          setDoc(doc(db, "users", user.uid), { character: null }, { merge: true });
+      }
       setCharacter(null);
       setCurrentRoom(null);
       setVisitedRooms({});
@@ -1148,6 +1231,20 @@ const App: React.FC = () => {
   const eastChoice = currentRoom?.choices.find(c => c.label === 'East');
   const westChoice = currentRoom?.choices.find(c => c.label === 'West');
 
+  // --- RENDER ---
+
+  if (authLoading) {
+      return (
+          <div className="min-h-screen bg-black flex items-center justify-center text-slate-500 font-serif">
+              <div className="animate-pulse">CONNECTING TO AETHER...</div>
+          </div>
+      );
+  }
+
+  if (!user) {
+      return <AuthScreen />;
+  }
+
   if (gameState === 'CREATION') {
     return (
       <div className="relative min-h-screen w-full bg-[#050505] text-slate-300 font-serif overflow-hidden">
@@ -1286,9 +1383,11 @@ const App: React.FC = () => {
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-500/10 to-transparent group-hover/btn:translate-x-full duration-1000 transition-transform -translate-x-full"></div>
                     BEGIN ADVENTURE
                 </button>
-                <button className="text-[10px] uppercase tracking-[0.4em] font-black text-slate-600 hover:text-slate-300 transition-colors py-2 px-4">
-                    ← Back to Menu
-                </button>
+                <div className="flex gap-4 items-center">
+                    <button onClick={() => auth.signOut()} className="text-[10px] uppercase tracking-[0.4em] font-black text-red-500 hover:text-red-300 transition-colors py-2 px-4">
+                        Logout
+                    </button>
+                </div>
             </div>
         </div>
       </div>
@@ -1323,6 +1422,14 @@ const App: React.FC = () => {
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden font-serif select-none">
       <BackgroundLayer image={currentRoom?.imageUrl || STATIC_DUNGEON_IMAGE} isLoading={isLoading} />
+      
+      {/* Save Indicator */}
+      {isSaving && (
+          <div className="absolute top-4 right-4 z-[300] flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+              <span className="text-[10px] text-amber-500 uppercase tracking-widest font-black">Syncing</span>
+          </div>
+      )}
       
       {isLoading && (
         <div className="absolute inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center backdrop-blur-md">
@@ -1458,6 +1565,7 @@ const App: React.FC = () => {
               <div className="flex gap-2 h-14">
                  <button className="px-5 ui-panel bg-[#1a1a20] border-[#444] text-[10px] text-amber-500 font-black uppercase tracking-[0.2em] hover:text-white hover:border-amber-600 transition-all rounded shadow-lg opacity-50 cursor-not-allowed">Skills</button>
                  <button onClick={() => setShowInventory(true)} className="px-5 ui-panel bg-[#1a1a20] border-[#444] text-[10px] text-amber-500 font-black uppercase tracking-[0.2em] hover:text-white hover:border-amber-600 transition-all rounded shadow-lg">Gear</button>
+                 <button onClick={() => { auth.signOut(); }} className="px-5 ui-panel bg-[#1a1a20] border-[#444] text-[10px] text-red-500 font-black uppercase tracking-[0.2em] hover:text-white hover:border-red-600 transition-all rounded shadow-lg">Exit</button>
               </div>
          </div>
       </div>
