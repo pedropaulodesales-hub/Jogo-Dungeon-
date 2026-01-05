@@ -1,3 +1,4 @@
+
 import { Room, EncounterType, Enemy, PathChoice, Item, ItemType, ArmorWeight, PlayerClass } from "../types";
 import { STATIC_DUNGEON_IMAGE } from "../constants";
 
@@ -448,12 +449,17 @@ export async function generateEnemy(biome: string, depth: number): Promise<Enemy
   const name = `${getRandom(ENEMY_PREFIXES)} ${getRandom(ENEMIES)}`;
   const baseHp = 40 + (depth * 15);
   const baseAtk = 8 + (depth * 3);
+  
+  // Speed Scaling: Roughly 8-20 range to match player's new slower ATB pacing
+  const baseSpeed = 8 + (depth * 0.8);
+  const randomSpeed = baseSpeed + (Math.random() * 4 - 2);
+
   return {
     name,
     hp: baseHp,
     maxHp: baseHp,
     attack: baseAtk,
-    speed: 10,
+    speed: Math.max(5, Math.floor(randomSpeed)),
     rewardXp: 30 + (depth * 10),
     rewardGold: 15 + (depth * 5),
     imagePrompt: "",

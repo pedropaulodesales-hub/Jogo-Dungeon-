@@ -51,12 +51,24 @@ const StatusIcon: React.FC<{ type: StatusType; duration: number }> = ({ type, du
     );
 }
 
-const ActionGauge: React.FC<{ value: number; color?: string }> = ({ value, color = "bg-white" }) => (
-    <div className="w-full h-1.5 bg-black/60 border border-white/10 rounded-full overflow-hidden mt-1">
-        <div 
-            className={`h-full ${color} shadow-[0_0_8px_rgba(255,255,255,0.6)] transition-all duration-75 ease-linear`} 
-            style={{ width: `${Math.min(100, value)}%` }}
-        />
+const ActionGauge: React.FC<{ value: number; color?: string; label?: string; textColor?: string }> = ({ value, color = "bg-white", label, textColor = "text-slate-400" }) => (
+    <div className="w-full flex flex-col">
+        {label && (
+             <div className="flex justify-between text-[10px] font-black mb-1.5 tracking-[0.2em] uppercase">
+                <span className={textColor}>{label}</span>
+                <span className="text-slate-300 font-bold">{Math.floor(value)}%</span>
+             </div>
+        )}
+        <div className="w-full h-3 bg-black/80 border border-white/10 rounded-full overflow-hidden relative shadow-inner">
+            <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(45deg,transparent,transparent_2px,rgba(255,255,255,0.05)_2px,rgba(255,255,255,0.05)_4px)]"></div>
+            <div 
+                className={`h-full ${color} shadow-[0_0_8px_currentColor] transition-all duration-75 ease-linear relative`} 
+                style={{ width: `${Math.max(1, Math.min(100, value))}%` }}
+            >
+                <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent"></div>
+                <div className="absolute right-0 top-0 bottom-0 w-[1px] bg-white/50 shadow-[0_0_4px_#fff]"></div>
+            </div>
+        </div>
     </div>
 );
 
@@ -585,9 +597,16 @@ const updateCharacterStats = (char: Character, item: Item, isEquipping: boolean)
     };
 };
 
+const calculateDamage = (attackerAtk: number, defenderDef: number, multiplier: number = 1): number => {
+    // Basic Formula: Damage = (Atk * Multiplier) - (Def * 0.5)
+    // Randomized variance +/- 20%
+    const base = (attackerAtk * multiplier) - (defenderDef * 0.5);
+    const variance = 0.8 + Math.random() * 0.4;
+    return Math.max(1, Math.floor(base * variance));
+};
+
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<'CREATION' | 'ADVENTURE' | 'GAME_OVER'>('CREATION');
-  const [showLore, setShowLore] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   
   const [creationName, setCreationName] = useState('');
@@ -606,7 +625,17 @@ const App: React.FC = () => {
   // COMBAT STATE (Action Gauge)
   const [playerAtb, setPlayerAtb] = useState(0); // 0 to 100
   const [enemyAtb, setEnemyAtb] = useState(0); // 0 to 100
-  const lastTickRef = useRef<number>(0);
+  
+  // Refs for Combat Loop to access latest state without staleness
+  const characterRef = useRef<Character | null>(null);
+  const enemyRef = useRef<Enemy | null>(null);
+  const combatStateRef = useRef({ 
+      playerAtb: 0, 
+      enemyAtb: 0, 
+      lastTick: 0,
+      isActive: false
+  });
+  
   const combatFrameRef = useRef<number>(0);
 
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -616,8 +645,12 @@ const App: React.FC = () => {
 
   // Loot Particle State
   const [lootVisuals, setLootVisuals] = useState<LootVisual[]>([]);
-  // Loot Showcase State
   const [lootNotifications, setLootNotifications] = useState<LootNotification[]>([]);
+
+  // Sync Refs
+  useEffect(() => { characterRef.current = character; }, [character]);
+  useEffect(() => { enemyRef.current = currentEnemy; }, [currentEnemy]);
+  useEffect(() => { combatStateRef.current.isActive = isCombatActive; }, [isCombatActive]);
 
   // Loot Particle Animation Loop
   useEffect(() => {
@@ -639,8 +672,6 @@ const App: React.FC = () => {
     const newParticles: LootVisual[] = [];
     const centerX = 50; 
     const centerY = 40; 
-
-    // Gold Particles
     const goldCount = Math.min(12, Math.floor(gold / 10) + 3);
     for (let i = 0; i < goldCount; i++) {
         newParticles.push({
@@ -655,8 +686,6 @@ const App: React.FC = () => {
             scale: 0.5 + Math.random() * 0.5
         });
     }
-    
-    // Item Particles
     items.forEach(item => {
         newParticles.push({
             id: Math.random(),
@@ -670,7 +699,6 @@ const App: React.FC = () => {
             scale: 1.2
         });
     });
-
     setLootVisuals(prev => [...prev, ...newParticles]);
   };
 
@@ -680,8 +708,6 @@ const App: React.FC = () => {
           item
       }));
       setLootNotifications(prev => [...prev, ...newNotifs]);
-
-      // Schedule removal
       newNotifs.forEach((n, index) => {
           setTimeout(() => {
               setLootNotifications(prev => prev.filter(x => x.id !== n.id));
@@ -761,52 +787,19 @@ const App: React.FC = () => {
 
   // --- COMBAT LOGIC ---
 
-  const calculateDamage = (attackerAtk: number, defenderDef: number, multiplier: number = 1): number => {
-      // Basic Formula: Damage = (Atk * Multiplier) - (Def * 0.5)
-      // Randomized variance +/- 20%
-      const base = (attackerAtk * multiplier) - (defenderDef * 0.5);
-      const variance = 0.8 + Math.random() * 0.4;
-      return Math.max(1, Math.floor(base * variance));
-  };
-
-  const applyStatusEffect = (targetEffects: StatusEffect[], effect: Skill['applyEffect']): StatusEffect[] => {
-      if (!effect || Math.random() > effect.chance) return targetEffects;
-      
-      const newId = Math.random().toString(36).substr(2, 5);
-      // Remove existing of same type to refresh
-      const filtered = targetEffects.filter(e => e.type !== effect.type);
-      return [...filtered, { 
-          id: newId, 
-          type: effect.type, 
-          duration: effect.duration, 
-          value: effect.value,
-          source: 'PLAYER' 
-      }];
-  };
-
   const processStatusEffects = (entity: Character | Enemy, deltaTime: number): { updatedEntity: any, damageTaken: number } => {
       let damageTaken = 0;
       const updatedEffects: StatusEffect[] = [];
-
       entity.statusEffects.forEach(effect => {
           effect.duration -= deltaTime;
-          
-          // Tick Logic (assume tick every 1000ms roughly, simplifying to per-frame damage distribution or just check thresholds)
-          // For simplicity in this loop, we'll apply damage proportionally or just once per second.
-          // Let's apply damage every frame proportional to deltaTime to be smooth.
-          
           if (effect.type === 'POISON' || effect.type === 'BURN') {
-              // value is total damage per second roughly? Or per tick?
-              // Let's say value is damage per second.
               const tickDamage = (effect.value * deltaTime) / 1000;
               damageTaken += tickDamage;
           }
-
           if (effect.duration > 0) {
               updatedEffects.push(effect);
           }
       });
-
       return {
           updatedEntity: { ...entity, statusEffects: updatedEffects },
           damageTaken
@@ -816,7 +809,7 @@ const App: React.FC = () => {
   const getStatusMultiplier = (effects: StatusEffect[], type: 'SPEED' | 'DAMAGE'): number => {
       let mult = 1;
       effects.forEach(e => {
-          if (type === 'SPEED' && e.type === 'SLOW') mult *= (1 - e.value); // e.g. value 0.4 = 40% slow
+          if (type === 'SPEED' && e.type === 'SLOW') mult *= (1 - e.value); 
           if (type === 'SPEED' && e.type === 'STUN') mult = 0;
       });
       return mult;
@@ -824,98 +817,105 @@ const App: React.FC = () => {
 
   // Physics-based Combat Loop
   const combatLoop = (time: number) => {
-    if (!lastTickRef.current) lastTickRef.current = time;
-    const deltaTime = time - lastTickRef.current;
-    lastTickRef.current = time;
-
-    // We need strict null checks because this loop runs outside React render cycle sometimes
-    setCharacter(prevChar => {
-        if (!prevChar || !isCombatActive) return prevChar;
-        
-        setCurrentEnemy(prevEnemy => {
-            if (!prevEnemy) return null;
-
-            // 1. Process Status Effects (DoTs)
-            const charProcess = processStatusEffects(prevChar, deltaTime);
-            const enemyProcess = processStatusEffects(prevEnemy, deltaTime);
-            
-            let nextChar = { ...charProcess.updatedEntity, hp: prevChar.hp - charProcess.damageTaken };
-            let nextEnemy = { ...enemyProcess.updatedEntity, hp: prevEnemy.hp - enemyProcess.damageTaken };
-
-            // Check Deaths from DoTs
-            if (nextChar.hp <= 0) {
-                setGameState('GAME_OVER');
-                setIsCombatActive(false);
-                return nextEnemy;
-            }
-            if (nextEnemy.hp <= 0) {
-                // We need to handle victory outside the loop to avoid state thrashing,
-                // but for now we set hp to 0 and let the next render cycle pick it up or call handleVictory directly?
-                // Calling handleVictory here is tricky due to closure staleness.
-                // Better to set flag or handle at end.
-                // We'll set HP to 0, and use an effect to trigger victory.
-                return { ...nextEnemy, hp: 0 };
-            }
-
-            // 2. Update Action Gauges
-            // Speed Formula: Base 15 + (DEX * 1.5) units per second. Target 100.
-            const charSpeedBase = 15 + (nextChar.attributes.dex * 1.5); 
-            const enemySpeedBase = 15 + (10 * 1.5); // Enemy base stats approximation (depth based?)
-
-            const charSpeedMult = getStatusMultiplier(nextChar.statusEffects, 'SPEED');
-            const enemySpeedMult = getStatusMultiplier(nextEnemy.statusEffects, 'SPEED');
-
-            const charGain = (charSpeedBase * charSpeedMult * deltaTime) / 1000;
-            const enemyGain = (enemySpeedBase * enemySpeedMult * deltaTime) / 1000;
-
-            let nextPlayerAtb = playerAtb + charGain;
-            let nextEnemyAtb = enemyAtb + enemyGain;
-
-            // 3. Turn Execution
-            
-            // Player Turn (Auto-Attack if idle)
-            if (nextPlayerAtb >= 100) {
-                const dmg = calculateDamage(nextChar.attack, 5); // Enemy def approx
-                nextEnemy.hp = Math.max(0, nextEnemy.hp - dmg);
-                // addLog(`You hit for ${dmg} damage.`); // Too spammy for loop?
-                nextPlayerAtb = 0;
-            }
-
-            // Enemy Turn
-            if (nextEnemyAtb >= 100 && nextEnemy.hp > 0) {
-                const dmg = calculateDamage(nextEnemy.attack, nextChar.defense);
-                nextChar.hp = Math.max(0, nextChar.hp - dmg);
-                nextEnemyAtb = 0;
-            }
-
-            // Check Deaths from Combat
-            if (nextChar.hp <= 0) {
-                setGameState('GAME_OVER');
-                setIsCombatActive(false);
-            }
-
-            // Update local state refs for the loop next time? 
-            // React state updates are batched. We need to set them.
-            // But we can't set them in the loop easily for ATB without triggering re-renders 60fps.
-            // Actually, we SHOULD set them to render the bars. React 18 handles frequent updates decently.
-            setPlayerAtb(nextPlayerAtb);
-            setEnemyAtb(nextEnemyAtb);
-
-            return nextEnemy;
-        });
-
-        return prevChar; // We returned the modified one in the inner loop, but setCharacter needs a return
-    });
-
-    if (isCombatActive) {
+    if (!combatStateRef.current.isActive) return;
+    
+    // Initialize tick
+    if (combatStateRef.current.lastTick === 0) {
+        combatStateRef.current.lastTick = time;
         combatFrameRef.current = requestAnimationFrame(combatLoop);
+        return;
     }
+
+    const deltaTime = time - combatStateRef.current.lastTick;
+    combatStateRef.current.lastTick = time;
+
+    // Use Refs for latest state to avoid stale closures
+    const char = characterRef.current;
+    const enemy = enemyRef.current;
+
+    if (!char || !enemy) {
+         combatFrameRef.current = requestAnimationFrame(combatLoop);
+         return;
+    }
+
+    // Logic Variables
+    let nextChar = { ...char };
+    let nextEnemy = { ...enemy };
+    let stateChanged = false;
+
+    // 1. Process DoTs
+    const charProcess = processStatusEffects(nextChar, deltaTime);
+    const enemyProcess = processStatusEffects(nextEnemy, deltaTime);
+    
+    nextChar = charProcess.updatedEntity;
+    nextChar.hp -= charProcess.damageTaken;
+    nextEnemy = enemyProcess.updatedEntity;
+    nextEnemy.hp -= enemyProcess.damageTaken;
+
+    if (charProcess.damageTaken > 0 || enemyProcess.damageTaken > 0) stateChanged = true;
+
+    // 2. Process ATB
+    // Slower Pacing Formula: Speed = % fill per second
+    // Player Base: 10 + (DEX * 0.8) 
+    // Example: 10 DEX = 18 Speed (5.5s turn). 20 DEX = 26 Speed (3.8s turn).
+    const charSpeed = 10 + (nextChar.attributes.dex * 0.8);
+    // Enemy: Fallback or from stats. 
+    const enemySpeed = nextEnemy.speed || 15; 
+    
+    const charSpeedMult = getStatusMultiplier(nextChar.statusEffects, 'SPEED');
+    const enemySpeedMult = getStatusMultiplier(nextEnemy.statusEffects, 'SPEED');
+
+    // DeltaTime is ms. divide by 1000 to get seconds.
+    // Speed is %/sec. 
+    let pAtb = combatStateRef.current.playerAtb + (charSpeed * charSpeedMult * (deltaTime / 1000));
+    let eAtb = combatStateRef.current.enemyAtb + (enemySpeed * enemySpeedMult * (deltaTime / 1000));
+
+    // Player Auto Attack (Idle)
+    if (pAtb >= 100) {
+        pAtb = 0;
+        const dmg = calculateDamage(char.attack, 5);
+        nextEnemy.hp -= dmg;
+        stateChanged = true;
+    }
+
+    // Enemy Auto Attack
+    if (eAtb >= 100 && nextEnemy.hp > 0) {
+        eAtb = 0;
+        const dmg = calculateDamage(enemy.attack, char.defense);
+        nextChar.hp -= dmg;
+        stateChanged = true;
+    }
+
+    // Update Local Refs
+    combatStateRef.current.playerAtb = pAtb;
+    combatStateRef.current.enemyAtb = eAtb;
+
+    // Commit to React State if necessary
+    if (stateChanged) {
+        // Check Death
+        if (nextChar.hp <= 0) {
+             setGameState('GAME_OVER');
+             setIsCombatActive(false);
+             return; 
+        }
+        // Enemy death handled in useEffect to avoid loop sync issues, but we set HP here
+        setCharacter(nextChar);
+        setCurrentEnemy(nextEnemy);
+    }
+    
+    // Always update ATB state for UI animation
+    setPlayerAtb(Math.min(100, pAtb));
+    setEnemyAtb(Math.min(100, eAtb));
+
+    combatFrameRef.current = requestAnimationFrame(combatLoop);
   };
 
   // Start/Stop Combat Loop
   useEffect(() => {
       if (isCombatActive) {
-          lastTickRef.current = performance.now();
+          combatStateRef.current.lastTick = 0;
+          combatStateRef.current.playerAtb = 0;
+          combatStateRef.current.enemyAtb = 0;
           combatFrameRef.current = requestAnimationFrame(combatLoop);
       } else {
           cancelAnimationFrame(combatFrameRef.current);
@@ -923,7 +923,7 @@ const App: React.FC = () => {
           setEnemyAtb(0);
       }
       return () => cancelAnimationFrame(combatFrameRef.current);
-  }, [isCombatActive]); // Re-bind if active state changes, but the loop handles state updates via functional updates
+  }, [isCombatActive]);
 
   // Separate Effect to handle Victory Condition when Enemy HP hits 0
   useEffect(() => {
@@ -932,19 +932,17 @@ const App: React.FC = () => {
       }
   }, [currentEnemy, isCombatActive]);
 
-
   const handleVictory = (enemy: Enemy) => {
     setIsCombatActive(false);
     addLog(`The ${enemy.name} has been vanquished.`);
     
-    // Generate Loot Drops
     const drops = Gemini.generateLoot(currentRoom?.depth || 1, 'ENEMY');
     if (drops.length > 0) {
         addLog(`Looted ${drops.map(d => d.name).join(', ')}`);
-        triggerLootDrop(drops, enemy.rewardGold); // Trigger Visuals
-        triggerLootShowcase(drops); // Trigger Showcase
+        triggerLootDrop(drops, enemy.rewardGold);
+        triggerLootShowcase(drops);
     } else {
-        triggerLootDrop([], enemy.rewardGold); // Just gold
+        triggerLootDrop([], enemy.rewardGold);
     }
 
     setCharacter(prev => {
@@ -952,7 +950,6 @@ const App: React.FC = () => {
       let nextXp = prev.xp + enemy.rewardXp;
       let level = prev.level;
       let xpToNext = prev.xpToNext;
-      // Simple Level Up logic: stats increase slightly
       if (nextXp >= xpToNext) {
         level++; nextXp -= xpToNext; xpToNext = Math.floor(xpToNext * 1.5);
         addLog(`Power surges through you. Level ${level} reached.`);
@@ -961,7 +958,7 @@ const App: React.FC = () => {
             xp: nextXp, level, xpToNext, 
             gold: prev.gold + enemy.rewardGold, 
             hp: prev.maxHp, mana: prev.maxMana,
-            statusEffects: [], // Clear statuses on victory
+            statusEffects: [], 
             inventory: [...prev.inventory, ...drops]
         };
       }
@@ -981,71 +978,69 @@ const App: React.FC = () => {
     const now = Date.now();
     if (now - skill.lastUsed < skill.cooldown) return;
     
-    // Determine Damage
-    let dmg = 0;
+    // 1. Pay Cost & Cooldown
+    const nextChar = { ...character, mana: character.mana - skill.manaCost };
+    
+    // 2. Calculate Effect
+    let damage = 0;
     if (skill.damageMult > 0) {
-        const baseStat = skill.id === 'nova' || skill.id === 'smite' ? character.magic : character.attack;
-        dmg = calculateDamage(baseStat, 0, skill.damageMult); // Ignore some def for skills? or 0 def for now
+        const baseStat = skill.id === 'nova' || skill.id === 'smite' ? nextChar.magic : nextChar.attack;
+        damage = calculateDamage(baseStat, 0, skill.damageMult);
     }
 
-    // Apply Self Effects (like Ward)
+    // 3. Apply Self Effects
     if (skill.id === 'ward') {
-        setCharacter(prev => prev ? { ...prev, mana: Math.min(prev.maxMana, prev.mana + 15), statusEffects: [] } : null);
+        nextChar.mana = Math.min(nextChar.maxMana, nextChar.mana + 15);
+        nextChar.statusEffects = [];
         addLog("Runic Ward clears your mind.");
-    } else {
-        // Pay Cost
-        setCharacter(prev => prev ? { ...prev, mana: prev.mana - skill.manaCost } : null);
     }
 
-    // Update Enemy
-    setCurrentEnemy(prev => {
-        if (!prev) return null;
-        let newEffects = prev.statusEffects;
-        
-        // Apply Skill Effects
-        if (skill.applyEffect) {
-            newEffects = applyStatusEffect(prev.statusEffects, skill.applyEffect);
-            addLog(`${skill.name} applied ${skill.applyEffect.type}!`);
-        }
-
-        const newHp = Math.max(0, prev.hp - dmg);
-        if (newHp === 0) return { ...prev, hp: 0, statusEffects: newEffects }; // Victory handled by effect
-        return { ...prev, hp: newHp, statusEffects: newEffects };
-    });
-
+    // 4. Update State
+    setCharacter(nextChar);
     setSkills(prev => prev.map(s => s.id === skill.id ? { ...s, lastUsed: now } : s));
+
+    // 5. Update Enemy
+    const nextEnemy = { ...currentEnemy };
+    nextEnemy.hp = Math.max(0, nextEnemy.hp - damage);
+    
+    if (skill.applyEffect) {
+        // Simple logic for adding effect
+        const newId = Math.random().toString(36).substr(2, 5);
+        nextEnemy.statusEffects = [...nextEnemy.statusEffects.filter(e => e.type !== skill.applyEffect!.type), {
+            id: newId,
+            type: skill.applyEffect.type,
+            duration: skill.applyEffect.duration,
+            value: skill.applyEffect.value,
+            source: 'PLAYER'
+        }];
+        addLog(`${skill.name} applied ${skill.applyEffect.type}!`);
+    }
+
+    if (damage > 0) addLog(`${skill.name} deals ${damage} damage!`);
+    setCurrentEnemy(nextEnemy);
   };
 
   const handleEquip = (item: Item) => {
     if (!character) return;
-    // Determine slot
     let slot: EquipmentSlot | null = null;
     if (item.type === 'RING') {
         if (!character.equipment.RING1) slot = 'RING1';
         else if (!character.equipment.RING2) slot = 'RING2';
-        else slot = 'RING1'; // Default to swapping Ring 1
+        else slot = 'RING1'; 
     } else if (['HELM', 'CHEST', 'GLOVES', 'BOOTS', 'OFFHAND', 'AMULET', 'BELT', 'WEAPON'].includes(item.type)) {
         slot = item.type as EquipmentSlot;
     }
 
     if (!slot) return;
-
     const currentEquip = character.equipment[slot];
     let newChar = { ...character };
-
-    // 1. Remove item from inventory
     newChar.inventory = newChar.inventory.filter(i => i.id !== item.id);
-
-    // 2. If something equipped, unequip it first (stats removed)
     if (currentEquip) {
-        newChar = updateCharacterStats(newChar, currentEquip, false); // remove stats
+        newChar = updateCharacterStats(newChar, currentEquip, false); 
         newChar.inventory.push(currentEquip);
     }
-
-    // 3. Equip new item (stats added)
     newChar = updateCharacterStats(newChar, item, true);
     newChar.equipment[slot] = item;
-
     setCharacter(newChar);
     addLog(`Equipped ${item.name}.`);
   };
@@ -1054,11 +1049,9 @@ const App: React.FC = () => {
       if (!character || !character.equipment[slot]) return;
       const item = character.equipment[slot]!;
       let newChar = { ...character };
-
-      newChar = updateCharacterStats(newChar, item, false); // remove stats
+      newChar = updateCharacterStats(newChar, item, false); 
       newChar.equipment[slot] = null;
       newChar.inventory.push(item);
-
       setCharacter(newChar);
       addLog(`Unequipped ${item.name}.`);
   };
@@ -1066,7 +1059,6 @@ const App: React.FC = () => {
   const handleUseItem = (item: Item) => {
       if (!character) return;
       if (item.type === 'POTION') {
-          // Consume
           let newChar = { ...character };
           if (item.effect?.type === 'HEAL') {
               const heal = item.effect.value;
@@ -1080,7 +1072,6 @@ const App: React.FC = () => {
           newChar.inventory = newChar.inventory.filter(i => i.id !== item.id);
           setCharacter(newChar);
       } else {
-          // It's equipment, try to equip
           handleEquip(item);
       }
   };
@@ -1093,10 +1084,9 @@ const App: React.FC = () => {
       const newChar = { ...character, gold: character.gold + gold, inventory: [...character.inventory, ...items] };
       setCharacter(newChar);
       
-      triggerLootDrop(items, gold); // Trigger visuals
-      triggerLootShowcase(items); // Trigger Showcase
+      triggerLootDrop(items, gold); 
+      triggerLootShowcase(items); 
 
-      // Update room so chest is opened
       const updatedRoom = { 
           ...currentRoom, 
           encounterData: { ...currentRoom.encounterData, loot: undefined, chestOpened: true },
@@ -1129,7 +1119,6 @@ const App: React.FC = () => {
     if (!visitedRooms[coordKey]) {
         if (nextRoom.encounterType === EncounterType.BATTLE) {
             const enemy = await Gemini.generateEnemy(biome, nextRoom.depth);
-            // Initialize Enemy with no effects
             setCurrentEnemy({ ...enemy, statusEffects: [] });
             setIsCombatActive(true);
             setPlayerAtb(0);
@@ -1417,8 +1406,8 @@ const App: React.FC = () => {
       <div className="absolute top-0 left-0 right-0 p-6 flex items-start justify-between z-50 pointer-events-none">
          <div className="flex items-start gap-4 pointer-events-auto">
              <div className="relative">
-                 <div className="w-16 h-16 ui-panel rounded border-[#444] shadow-xl flex items-center justify-center overflow-hidden">
-                      <div className="text-4xl filter drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">{CLASS_DATA[character.classType].icon}</div>
+                 <div className="w-20 h-20 ui-panel rounded border-[#444] shadow-xl flex items-center justify-center overflow-hidden">
+                      <div className="text-5xl filter drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">{CLASS_DATA[character.classType].icon}</div>
                  </div>
                  {/* Status Effects Container */}
                  <div className="absolute top-full left-0 mt-2 flex gap-1">
@@ -1429,36 +1418,33 @@ const App: React.FC = () => {
              </div>
              
              <div className="flex flex-col gap-2">
-                  <div className="ui-panel bg-black/80 border-[#333] px-4 py-1.5 rounded-sm flex items-center gap-3">
-                      <span className="text-amber-100 font-bold tracking-[0.2em] text-base uppercase exocet-font rune-glow-gold">{character.name}</span>
-                      <div className="h-3 w-[1px] bg-white/10"></div>
-                      <span className="text-[9px] text-slate-500 font-black tracking-[0.15em] uppercase">LV {character.level} {character.classType}</span>
+                  <div className="ui-panel bg-black/80 border-[#333] px-6 py-2 rounded-sm flex items-center gap-3">
+                      <span className="text-amber-100 font-bold tracking-[0.2em] text-xl uppercase exocet-font rune-glow-gold">{character.name}</span>
+                      <div className="h-4 w-[1px] bg-white/10"></div>
+                      <span className="text-xs text-slate-500 font-black tracking-[0.15em] uppercase">LV {character.level} {character.classType}</span>
                   </div>
-                  <div className="ui-panel bg-black/90 border-[#333] p-3 flex items-center gap-6 rounded-sm shadow-xl">
-                      <div className="flex flex-col w-32">
-                          <div className="flex justify-between text-[8px] font-black mb-1.5 text-red-500 tracking-[0.1em] uppercase">
-                             <span>HP</span> <span>{Math.floor(character.hp)} / {character.maxHp}</span>
+                  <div className="ui-panel bg-black/90 border-[#333] p-5 flex items-center gap-8 rounded-sm shadow-xl">
+                      <div className="flex flex-col w-44">
+                          <div className="flex justify-between text-[10px] font-black mb-1.5 text-red-500 tracking-[0.1em] uppercase">
+                             <span>HP</span> <span className="text-xs">{Math.floor(character.hp)} / {character.maxHp}</span>
                           </div>
-                          <div className="h-2 bg-black/50 border border-white/5 rounded-full overflow-hidden bar-shimmer">
+                          <div className="h-3 bg-black/50 border border-white/5 rounded-full overflow-hidden bar-shimmer">
                              <div className="h-full bg-gradient-to-r from-red-950 to-red-600 shadow-[0_0_8px_rgba(255,0,0,0.4)] transition-all duration-500" style={{width: `${(character.hp / character.maxHp)*100}%`}}></div>
                           </div>
                       </div>
-                      <div className="flex flex-col w-32">
-                          <div className="flex justify-between text-[8px] font-black mb-1.5 text-blue-500 tracking-[0.1em] uppercase">
-                             <span>MP</span> <span>{Math.floor(character.mana)} / {character.maxMana}</span>
+                      <div className="flex flex-col w-44">
+                          <div className="flex justify-between text-[10px] font-black mb-1.5 text-blue-500 tracking-[0.1em] uppercase">
+                             <span>MP</span> <span className="text-xs">{Math.floor(character.mana)} / {character.maxMana}</span>
                           </div>
-                          <div className="h-2 bg-black/50 border border-white/5 rounded-full overflow-hidden bar-shimmer">
+                          <div className="h-3 bg-black/50 border border-white/5 rounded-full overflow-hidden bar-shimmer">
                              <div className="h-full bg-gradient-to-r from-blue-950 to-blue-600 shadow-[0_0_8px_rgba(0,0,255,0.4)] transition-all duration-500" style={{width: `${(character.mana / character.maxMana)*100}%`}}></div>
                           </div>
                       </div>
-                      <div className="flex flex-col w-24">
-                          <div className="flex justify-between text-[8px] font-black mb-1.5 text-yellow-100 tracking-[0.1em] uppercase">
-                             <span>ACTION</span> <span>{(playerAtb).toFixed(0)}%</span>
-                          </div>
-                          <ActionGauge value={playerAtb} color="bg-yellow-200" />
+                      <div className="flex flex-col w-56">
+                          <ActionGauge value={playerAtb} color="bg-amber-400" label="AUTO ATTACK" />
                       </div>
-                      <div className="flex items-center gap-2 text-amber-500 font-black text-xl tracking-[0.05em] ml-2">
-                         <span className="rune-glow-gold text-lg">◎</span> <span>{character.gold}</span>
+                      <div className="flex items-center gap-2 text-amber-500 font-black text-3xl tracking-[0.05em] ml-2">
+                         <span className="rune-glow-gold text-2xl">◎</span> <span>{character.gold}</span>
                       </div>
                   </div>
              </div>
@@ -1542,8 +1528,8 @@ const App: React.FC = () => {
                     </div>
                     
                     {/* Enemy Action Bar */}
-                    <div className="w-[400px] mx-auto mt-2">
-                         <ActionGauge value={enemyAtb} color="bg-red-300" />
+                    <div className="w-[400px] mx-auto mt-4">
+                         <ActionGauge value={enemyAtb} color="bg-red-500" label="ENEMY ACTION" />
                     </div>
 
                     <div className="mt-4 text-red-500/80 font-black text-[10px] tracking-[0.4em] uppercase font-mono">{Math.floor(currentEnemy?.hp || 0)} ESSENCE REMAINING</div>
