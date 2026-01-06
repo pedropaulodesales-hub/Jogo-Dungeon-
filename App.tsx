@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { 
   Character, Room, Enemy, Skill, EncounterType, 
   PathChoice, PlayerClass, Attributes, Item, EquipmentSlot, ItemType,
-  StatusEffect, StatusType
+  StatusEffect, StatusType, GameState
 } from './types';
 import { 
   CLASS_DATA, SKILL_LIBRARY, BIOMES, RUNE_GLYPHS, STATIC_DUNGEON_IMAGE
@@ -35,6 +35,9 @@ interface LootNotification {
     id: string;
     item: Item;
 }
+
+// --- Drag Source Type ---
+type DragSourceType = 'INVENTORY' | EquipmentSlot;
 
 // --- Components ---
 
@@ -401,176 +404,309 @@ const DualPathCard: React.FC<{
     );
 };
 
-const EquipmentSlotIcon: React.FC<{ 
-    type: EquipmentSlot; 
-    item: Item | null; 
-    onClick: () => void;
-    selected?: boolean; 
-}> = ({ type, item, onClick, selected }) => (
-    <div 
-        onClick={onClick}
-        className={`w-14 h-14 border rounded flex items-center justify-center cursor-pointer transition-all relative group shadow-2xl ${
-            selected 
-                ? 'border-amber-400 bg-amber-900/30 ring-2 ring-amber-500/50' 
-                : item 
-                    ? 'border-amber-500/40 bg-amber-950/20' 
-                    : 'border-slate-800 bg-black/60 hover:border-slate-600'
-        }`}
-    >
-        <span className="text-3xl filter drop-shadow-lg opacity-80 group-hover:opacity-100 transition-all">
-            {item?.icon || '◌'}
-        </span>
-        <div className="absolute -bottom-1 -right-1 text-[8px] font-black text-slate-500 bg-black/90 px-1 py-0.5 rounded border border-slate-800 uppercase tracking-tighter">
-            {type.substring(0, 3)}
-        </div>
-    </div>
-);
+// --- TOOLTIP COMPONENT ---
 
-const InventoryModal: React.FC<{
-    character: Character;
-    onEquip: (item: Item) => void;
-    onUnequip: (slot: EquipmentSlot) => void;
-    onUse: (item: Item) => void;
-    onClose: () => void;
-}> = ({ character, onEquip, onUnequip, onUse, onClose }) => {
-    const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-
+const ItemTooltip: React.FC<{ item: Item; position: { x: number, y: number } }> = ({ item, position }) => {
+    const stats = item.stats || {};
+    
     return (
-        <div className="absolute inset-0 z-[200] bg-black/90 backdrop-blur-lg flex items-center justify-center animate-in fade-in duration-300">
-            <div className="w-full max-w-5xl h-[80vh] ui-panel border-[#444] rounded-sm flex flex-col relative shadow-[0_0_100px_rgba(0,0,0,0.8)]">
-                {/* Header */}
-                <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0d0d10]">
-                    <div className="flex items-center gap-4">
-                        <span className="exocet-font text-3xl text-amber-500 uppercase tracking-[0.2em] rune-glow-gold">Equipment</span>
-                        <div className="h-6 w-[1px] bg-white/10"></div>
-                        <span className="text-slate-500 font-serif italic text-sm">Manage your gear and artifacts</span>
-                    </div>
-                    <button onClick={onClose} className="text-slate-500 hover:text-red-400 text-sm font-black uppercase tracking-widest transition-colors">Close ✕</button>
-                </div>
-
-                <div className="flex-1 flex overflow-hidden">
-                    {/* Left: Paper Doll / Stats */}
-                    <div className="w-1/3 p-8 border-r border-white/5 bg-[#0a0a0c] flex flex-col items-center overflow-y-auto">
-                        <div className="relative w-64 h-80 mb-8">
-                             {/* Equipment Grid Layout */}
-                             <div className="absolute top-0 left-1/2 -translate-x-1/2"><EquipmentSlotIcon type="HELM" item={character.equipment.HELM} onClick={() => character.equipment.HELM && onUnequip('HELM')} /></div>
-                             <div className="absolute top-20 left-1/2 -translate-x-1/2"><EquipmentSlotIcon type="CHEST" item={character.equipment.CHEST} onClick={() => character.equipment.CHEST && onUnequip('CHEST')} /></div>
-                             <div className="absolute top-20 left-4"><EquipmentSlotIcon type="GLOVES" item={character.equipment.GLOVES} onClick={() => character.equipment.GLOVES && onUnequip('GLOVES')} /></div>
-                             <div className="absolute top-20 right-4"><EquipmentSlotIcon type="AMULET" item={character.equipment.AMULET} onClick={() => character.equipment.AMULET && onUnequip('AMULET')} /></div>
-                             <div className="absolute top-40 left-0"><EquipmentSlotIcon type="WEAPON" item={character.equipment.WEAPON} onClick={() => character.equipment.WEAPON && onUnequip('WEAPON')} /></div>
-                             <div className="absolute top-40 right-0"><EquipmentSlotIcon type="OFFHAND" item={character.equipment.OFFHAND} onClick={() => character.equipment.OFFHAND && onUnequip('OFFHAND')} /></div>
-                             <div className="absolute top-40 left-1/2 -translate-x-1/2"><EquipmentSlotIcon type="BELT" item={character.equipment.BELT} onClick={() => character.equipment.BELT && onUnequip('BELT')} /></div>
-                             <div className="absolute bottom-0 left-10"><EquipmentSlotIcon type="RING1" item={character.equipment.RING1} onClick={() => character.equipment.RING1 && onUnequip('RING1')} /></div>
-                             <div className="absolute bottom-0 right-10"><EquipmentSlotIcon type="RING2" item={character.equipment.RING2} onClick={() => character.equipment.RING2 && onUnequip('RING2')} /></div>
-                             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-2"><EquipmentSlotIcon type="BOOTS" item={character.equipment.BOOTS} onClick={() => character.equipment.BOOTS && onUnequip('BOOTS')} /></div>
-                        </div>
-
-                        {/* Summary Stats */}
-                        <div className="w-full space-y-2">
-                             <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-4 text-center">Combat Statistics</div>
-                             <div className="flex justify-between p-2 bg-white/5 rounded border border-white/5">
-                                 <span className="text-xs text-slate-400 font-bold">ATTACK</span>
-                                 <span className="text-xs text-amber-500 font-bold">{character.attack}</span>
-                             </div>
-                             <div className="flex justify-between p-2 bg-white/5 rounded border border-white/5">
-                                 <span className="text-xs text-slate-400 font-bold">DEFENSE</span>
-                                 <span className="text-xs text-slate-200 font-bold">{character.defense}</span>
-                             </div>
-                             <div className="flex justify-between p-2 bg-white/5 rounded border border-white/5">
-                                 <span className="text-xs text-slate-400 font-bold">MAGIC</span>
-                                 <span className="text-xs text-blue-400 font-bold">{character.magic}</span>
-                             </div>
-                             <div className="flex justify-between p-2 bg-white/5 rounded border border-white/5">
-                                 <span className="text-xs text-slate-400 font-bold">CRIT</span>
-                                 <span className="text-xs text-yellow-400 font-bold">{character.crit}%</span>
-                             </div>
-                        </div>
-                    </div>
-
-                    {/* Right: Inventory Grid */}
-                    <div className="flex-1 p-8 bg-[#111115] flex flex-col">
-                        <div className="flex-1 overflow-y-auto mb-6">
-                            <h3 className="text-xs text-slate-500 font-black uppercase tracking-widest mb-4">Inventory ({character.inventory.length})</h3>
-                            {character.inventory.length === 0 ? (
-                                <div className="text-slate-600 italic text-center py-20">Your satchel is empty.</div>
-                            ) : (
-                                <div className="grid grid-cols-5 gap-3">
-                                    {character.inventory.map(item => (
-                                        <div 
-                                            key={item.id}
-                                            onClick={() => setSelectedItem(item)}
-                                            className={`aspect-square border rounded p-2 flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-white/5 relative group ${
-                                                selectedItem?.id === item.id 
-                                                    ? 'border-amber-500 bg-amber-900/10 shadow-[0_0_15px_rgba(245,158,11,0.2)]' 
-                                                    : 'border-[#333] bg-black/40'
-                                            }`}
-                                        >
-                                            <span className="text-3xl mb-1">{item.icon}</span>
-                                            <span className={`text-[8px] font-black uppercase tracking-tighter truncate w-full text-center ${
-                                                item.rarity === 'LEGENDARY' ? 'text-amber-500' :
-                                                item.rarity === 'RARE' ? 'text-blue-400' :
-                                                item.rarity === 'UNCOMMON' ? 'text-green-500' : 'text-slate-400'
-                                            }`}>{item.name}</span>
-                                            {item.type === 'POTION' && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-500"></div>}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Item Details Panel */}
-                        <div className="h-40 border-t border-white/10 pt-6 flex gap-6">
-                            {selectedItem ? (
-                                <>
-                                    <div className="w-24 h-24 bg-black/40 border border-[#333] rounded flex items-center justify-center text-5xl shrink-0">
-                                        {selectedItem.icon}
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div>
-                                                <h4 className={`text-lg font-bold exocet-font uppercase tracking-wider ${
-                                                    selectedItem.rarity === 'LEGENDARY' ? 'text-amber-500 rune-glow-gold' :
-                                                    selectedItem.rarity === 'RARE' ? 'text-blue-400' :
-                                                    selectedItem.rarity === 'UNCOMMON' ? 'text-green-500' : 'text-slate-200'
-                                                }`}>{selectedItem.name}</h4>
-                                                <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{selectedItem.type} • {selectedItem.rarity}</span>
-                                            </div>
-                                            <div className="text-amber-500 font-bold text-sm">
-                                                {selectedItem.value} <span className="text-[10px]">GOLD</span>
-                                            </div>
-                                        </div>
-                                        <p className="text-xs text-slate-400 italic font-serif mb-3">"{selectedItem.description}"</p>
-                                        
-                                        {/* Item Stats display */}
-                                        <div className="flex gap-4 text-[10px] font-mono text-slate-300 mb-3">
-                                            {selectedItem.stats?.atk && <span>ATK +{selectedItem.stats.atk}</span>}
-                                            {selectedItem.stats?.def && <span>DEF +{selectedItem.stats.def}</span>}
-                                            {selectedItem.stats?.hp && <span className="text-red-400">HP +{selectedItem.stats.hp}</span>}
-                                            {selectedItem.stats?.crit && <span className="text-yellow-400">CRIT +{selectedItem.stats.crit}%</span>}
-                                        </div>
-
-                                        <div className="flex gap-3">
-                                            {selectedItem.type === 'POTION' ? (
-                                                <button onClick={() => { onUse(selectedItem); setSelectedItem(null); }} className="px-6 py-2 bg-red-900/50 hover:bg-red-800 border border-red-700/50 text-red-100 text-xs font-black uppercase tracking-widest rounded transition-all">
-                                                    Consume
-                                                </button>
-                                            ) : (
-                                                <button onClick={() => { onEquip(selectedItem); setSelectedItem(null); }} className="px-6 py-2 bg-amber-900/30 hover:bg-amber-800/50 border border-amber-700/50 text-amber-100 text-xs font-black uppercase tracking-widest rounded transition-all">
-                                                    Equip
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                </>
-                            ) : (
-                                <div className="w-full flex items-center justify-center text-slate-600 text-sm italic">
-                                    Select an item to view details...
-                                </div>
-                            )}
-                        </div>
-                    </div>
+        <div 
+            className="fixed z-[9999] w-72 bg-[#0a0a0c] border border-amber-500/50 p-4 shadow-[0_0_30px_rgba(0,0,0,0.95)] rounded-sm pointer-events-none"
+            style={{ 
+                left: position.x, 
+                top: position.y,
+                transform: 'translate(-50%, -100%) translateY(-10px)'
+            }}
+        >
+            <div className="absolute inset-0 bg-gradient-to-b from-amber-900/10 to-transparent pointer-events-none"></div>
+            
+            {/* Header */}
+            <div className="relative border-b border-white/10 pb-2 mb-2">
+                <h4 className={`text-base font-bold exocet-font uppercase tracking-wider ${
+                    item.rarity === 'LEGENDARY' ? 'text-amber-500 rune-glow-gold' :
+                    item.rarity === 'RARE' ? 'text-blue-400' :
+                    item.rarity === 'UNCOMMON' ? 'text-green-500' : 'text-slate-200'
+                }`}>{item.name}</h4>
+                
+                <div className="flex justify-between items-baseline mt-1">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em]">
+                        {item.rarity} {item.type}
+                    </span>
+                    {item.weightClass && item.weightClass !== 'NONE' && (
+                         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider border border-slate-700 px-1.5 rounded bg-slate-900/50">
+                             {item.weightClass}
+                         </span>
+                    )}
                 </div>
             </div>
+
+            {/* Main Stats Row */}
+            {(stats.atk || stats.def) && (
+                <div className="flex gap-4 mb-3 bg-white/5 p-2 rounded border border-white/5">
+                    {stats.atk && (
+                        <div className="flex-1 text-center border-r border-white/10 last:border-0">
+                            <div className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Attack</div>
+                            <div className="text-lg text-red-400 font-bold exocet-font">{stats.atk}</div>
+                        </div>
+                    )}
+                    {stats.def && (
+                        <div className="flex-1 text-center border-r border-white/10 last:border-0">
+                            <div className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Defense</div>
+                            <div className="text-lg text-slate-300 font-bold exocet-font">{stats.def}</div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Description */}
+            <p className="text-xs text-slate-400 italic font-serif mb-3 leading-relaxed opacity-80">"{item.description}"</p>
+
+            {/* Attributes Grid */}
+            <div className="space-y-1 mb-3">
+                {/* Primary Attributes */}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    {stats.str && <div className="flex justify-between text-[10px] font-bold"><span className="text-slate-500">STRENGTH</span> <span className="text-red-400">+{stats.str}</span></div>}
+                    {stats.dex && <div className="flex justify-between text-[10px] font-bold"><span className="text-slate-500">DEXTERITY</span> <span className="text-green-400">+{stats.dex}</span></div>}
+                    {stats.int && <div className="flex justify-between text-[10px] font-bold"><span className="text-slate-500">INTELLECT</span> <span className="text-blue-400">+{stats.int}</span></div>}
+                    {stats.vit && <div className="flex justify-between text-[10px] font-bold"><span className="text-slate-500">VITALITY</span> <span className="text-amber-400">+{stats.vit}</span></div>}
+                    {stats.cha && <div className="flex justify-between text-[10px] font-bold"><span className="text-slate-500">CHARISMA</span> <span className="text-purple-400">+{stats.cha}</span></div>}
+                </div>
+
+                {/* Secondary Stats */}
+                {(stats.crit || stats.dodge || stats.hp || stats.mana || stats.mag) && (
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 pt-1 mt-1 border-t border-white/5">
+                        {stats.hp && <div className="flex justify-between text-[10px] font-bold"><span className="text-slate-500">MAX HP</span> <span className="text-red-500">+{stats.hp}</span></div>}
+                        {stats.mana && <div className="flex justify-between text-[10px] font-bold"><span className="text-slate-500">MAX MANA</span> <span className="text-blue-500">+{stats.mana}</span></div>}
+                        {stats.mag && <div className="flex justify-between text-[10px] font-bold"><span className="text-slate-500">MAGIC</span> <span className="text-purple-500">+{stats.mag}</span></div>}
+                        {stats.crit && <div className="flex justify-between text-[10px] font-bold"><span className="text-slate-500">CRIT CHANCE</span> <span className="text-yellow-500">+{stats.crit}%</span></div>}
+                        {stats.dodge && <div className="flex justify-between text-[10px] font-bold"><span className="text-slate-500">DODGE</span> <span className="text-emerald-500">+{stats.dodge}%</span></div>}
+                    </div>
+                )}
+            </div>
+
+            {/* Effect */}
+            {item.effect && (
+                <div className="mb-3 p-2 bg-emerald-900/20 border border-emerald-500/30 rounded flex items-center gap-2">
+                    <div className="text-lg">⚗️</div>
+                    <div>
+                        <div className="text-[9px] text-emerald-500 font-black uppercase tracking-wider">On Use</div>
+                        <div className="text-xs text-emerald-100 font-bold">Restores {item.effect.value} {item.effect.type}</div>
+                    </div>
+                </div>
+            )}
+            
+            {/* Footer */}
+            <div className="pt-2 border-t border-white/10 flex justify-between items-center">
+                <span className="text-[10px] text-amber-500 font-bold">Value: {item.value} Gold</span>
+                <span className="text-[9px] text-slate-600 uppercase tracking-wider font-bold">
+                    {item.type === 'POTION' ? 'Right Click' : 'Drag'}
+                </span>
+            </div>
+        </div>
+    );
+};
+
+// --- EQUIPMENT WINDOW COMPONENT ---
+const EquipmentWindow: React.FC<{
+    character: Character;
+    onUnequip: (slot: EquipmentSlot) => void;
+    onEquip: (item: Item, slot: EquipmentSlot) => void;
+    onClose: () => void;
+    dragItem: { item: Item, source: DragSourceType } | null;
+    setDragItem: (val: { item: Item, source: DragSourceType } | null) => void;
+    onHover: (item: Item | null, e?: React.MouseEvent) => void;
+}> = ({ character, onUnequip, onEquip, onClose, dragItem, setDragItem, onHover }) => {
+    
+    const handleDragStart = (e: React.DragEvent, item: Item, slot: EquipmentSlot) => {
+        setDragItem({ item, source: slot });
+        e.dataTransfer.effectAllowed = 'move';
+        onHover(null); // Hide tooltip on drag
+    };
+
+    const handleDropOnSlot = (e: React.DragEvent, targetSlot: EquipmentSlot) => {
+        e.preventDefault();
+        if (!dragItem) return;
+        
+        let isValid = false;
+        if (dragItem.item.type === 'WEAPON' && targetSlot === 'WEAPON') isValid = true;
+        else if (dragItem.item.type === 'OFFHAND' && targetSlot === 'OFFHAND') isValid = true;
+        else if (targetSlot === dragItem.item.type) isValid = true;
+        else if (dragItem.item.type === 'RING' && (targetSlot === 'RING1' || targetSlot === 'RING2')) isValid = true;
+
+        if (isValid) {
+            onEquip(dragItem.item, targetSlot);
+        }
+        setDragItem(null);
+    };
+
+    const renderEquipmentSlot = (slot: EquipmentSlot, top: string, left: string) => {
+        const item = character.equipment[slot];
+        return (
+            <div 
+                className="absolute"
+                style={{ top, left, transform: 'translate(-50%, -50%)' }}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => handleDropOnSlot(e, slot)}
+                onMouseEnter={(e) => item && onHover(item, e)}
+                onMouseLeave={() => onHover(null)}
+            >
+                <div 
+                    draggable={!!item}
+                    onDragStart={(e) => item && handleDragStart(e, item, slot)}
+                    onClick={() => item && onUnequip(slot)}
+                    onContextMenu={(e) => { e.preventDefault(); if(item) onUnequip(slot); }}
+                    className={`w-14 h-14 border-2 flex items-center justify-center relative bg-black/80 transition-all duration-300 group
+                        ${item 
+                            ? (item.rarity === 'LEGENDARY' ? 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]' : 
+                               item.rarity === 'RARE' ? 'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)]' :
+                               'border-slate-600') 
+                            : 'border-slate-800/60 hover:border-amber-500/50 hover:bg-white/5'}
+                    `}
+                >
+                    {item ? (
+                        <>
+                            <span className="text-3xl filter drop-shadow-lg">{item.icon}</span>
+                        </>
+                    ) : (
+                        <span className="text-slate-700 text-[10px] font-black uppercase tracking-widest opacity-50">{slot.replace(/[0-9]/g, '').substring(0,3)}</span>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <div className="absolute bottom-6 right-[468px] z-[100] w-[400px] shadow-[0_0_50px_rgba(0,0,0,0.9)] bg-[#0a0a0c] border border-[#333] animate-in fade-in slide-in-from-right-10 duration-300 rounded-sm">
+             <div className="p-4 border-b border-[#222] flex justify-between items-center bg-[#111115]">
+                <h2 className="text-lg font-bold exocet-font text-amber-500 uppercase tracking-[0.2em] rune-glow-gold">Equipment</h2>
+                <button onClick={onClose} className="w-6 h-6 flex items-center justify-center border border-red-900/50 text-red-500 hover:bg-red-900/20 rounded">✕</button>
+             </div>
+             
+             <div className="relative h-[550px] bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')]">
+                 <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_rgba(197,160,89,0.15),_transparent_70%)] pointer-events-none"></div>
+                 
+                 <div className="relative w-full h-full">
+                     {renderEquipmentSlot('HELM', '15%', '50%')}
+                     {renderEquipmentSlot('AMULET', '28%', '50%')}
+                     {renderEquipmentSlot('CHEST', '45%', '50%')}
+                     {renderEquipmentSlot('BELT', '62%', '50%')}
+                     {renderEquipmentSlot('BOOTS', '85%', '50%')}
+
+                     <div className="absolute top-[45%] left-[20%] transform -translate-x-1/2 -translate-y-1/2 pointer-events-none text-[8px] text-slate-700 font-bold">MAIN</div>
+                     <div className="absolute top-[45%] left-[80%] transform -translate-x-1/2 -translate-y-1/2 pointer-events-none text-[8px] text-slate-700 font-bold">OFF</div>
+                     
+                     {renderEquipmentSlot('WEAPON', '45%', '20%')}
+                     {renderEquipmentSlot('OFFHAND', '45%', '80%')}
+                     {renderEquipmentSlot('GLOVES', '65%', '20%')}
+                     {renderEquipmentSlot('RING1', '75%', '28%')}
+                     {renderEquipmentSlot('RING2', '75%', '72%')}
+                 </div>
+
+                 <div className="absolute bottom-0 left-0 right-0 bg-[#0d0d10] border-t border-[#333] p-3 flex justify-between px-6">
+                      <div className="text-center"><div className="text-[10px] text-slate-500 font-bold">ATK</div><div className="text-lg text-amber-500 font-bold exocet-font">{character.attack}</div></div>
+                      <div className="text-center"><div className="text-[10px] text-slate-500 font-bold">DEF</div><div className="text-lg text-slate-300 font-bold exocet-font">{character.defense}</div></div>
+                      <div className="text-center"><div className="text-[10px] text-slate-500 font-bold">MAG</div><div className="text-lg text-blue-400 font-bold exocet-font">{character.magic}</div></div>
+                      <div className="text-center"><div className="text-[10px] text-slate-500 font-bold">CRIT</div><div className="text-lg text-yellow-500 font-bold exocet-font">{character.crit}%</div></div>
+                 </div>
+            </div>
+        </div>
+    );
+};
+
+// --- INVENTORY WINDOW COMPONENT ---
+const InventoryWindow: React.FC<{
+    character: Character;
+    onEquip: (item: Item) => void;
+    onUse: (item: Item) => void;
+    onUnequip: (slot: EquipmentSlot) => void;
+    onClose: () => void;
+    dragItem: { item: Item, source: DragSourceType } | null;
+    setDragItem: (val: { item: Item, source: DragSourceType } | null) => void;
+    onHover: (item: Item | null, e?: React.MouseEvent) => void;
+}> = ({ character, onEquip, onUse, onUnequip, onClose, dragItem, setDragItem, onHover }) => {
+
+    const groupedInventory = useMemo(() => {
+        const groups: { item: Item, count: number, allItems: Item[] }[] = [];
+        character.inventory.forEach(item => {
+            if (item.type === 'POTION') {
+                const existing = groups.find(g => g.item.name === item.name);
+                if (existing) { existing.count++; existing.allItems.push(item); } 
+                else { groups.push({ item, count: 1, allItems: [item] }); }
+            } else {
+                groups.push({ item, count: 1, allItems: [item] });
+            }
+        });
+        return groups;
+    }, [character.inventory]);
+
+    const handleDragStart = (e: React.DragEvent, item: Item) => {
+        setDragItem({ item, source: 'INVENTORY' });
+        e.dataTransfer.effectAllowed = 'move';
+        onHover(null); // Hide tooltip on drag
+    };
+
+    const handleDropOnInventory = (e: React.DragEvent) => {
+        e.preventDefault();
+        if (!dragItem) return;
+        if (dragItem.source !== 'INVENTORY') {
+            onUnequip(dragItem.source as EquipmentSlot);
+        }
+        setDragItem(null);
+    };
+
+    return (
+        <div className="absolute bottom-6 right-6 z-[100] w-[420px] shadow-[0_0_50px_rgba(0,0,0,0.9)] bg-[#111115] border border-[#333] animate-in fade-in slide-in-from-right-10 duration-300 rounded-sm">
+             <div className="p-4 border-b border-[#333] flex justify-between items-center bg-[#15151a]">
+                 <h2 className="text-lg font-bold exocet-font text-slate-200 uppercase tracking-[0.2em]">Inventory</h2>
+                 <div className="flex items-center gap-3">
+                    <span className="text-amber-500 font-bold text-lg tracking-wider">{character.gold} <span className="text-[9px] text-amber-700">GOLD</span></span>
+                    <button onClick={onClose} className="w-6 h-6 flex items-center justify-center border border-red-900/50 text-red-500 hover:bg-red-900/20 rounded">✕</button>
+                 </div>
+             </div>
+
+             <div className="p-4 h-[500px] overflow-y-auto bg-[#0d0d10]" onDragOver={e => e.preventDefault()} onDrop={handleDropOnInventory}>
+                 {groupedInventory.length === 0 ? (
+                     <div className="h-full flex items-center justify-center text-slate-700 italic font-serif">Satchel is empty.</div>
+                 ) : (
+                     <div className="grid grid-cols-5 gap-2 content-start">
+                         {groupedInventory.map((group, idx) => {
+                             const { item, count, allItems } = group;
+                             const isLegendary = item.rarity === 'LEGENDARY';
+                             const isRare = item.rarity === 'RARE';
+                             const isUncommon = item.rarity === 'UNCOMMON';
+                             return (
+                                 <div 
+                                     key={`${item.id}_${idx}`}
+                                     className={`
+                                         relative aspect-square border bg-black/40 cursor-grab active:cursor-grabbing group hover:bg-white/5 transition-colors
+                                         flex items-center justify-center
+                                         ${isLegendary ? 'border-amber-500/60 bg-amber-900/10' : 
+                                           isRare ? 'border-blue-500/60 bg-blue-900/10' : 
+                                           isUncommon ? 'border-green-500/60 bg-green-900/10' : 'border-[#333]'}
+                                     `}
+                                     draggable
+                                     onDragStart={(e) => handleDragStart(e, allItems[0])}
+                                     onClick={() => item.type === 'POTION' ? onUse(allItems[0]) : onEquip(allItems[0])}
+                                     onContextMenu={(e) => { e.preventDefault(); item.type === 'POTION' ? onUse(allItems[0]) : onEquip(allItems[0]); }}
+                                     onMouseEnter={(e) => onHover(item, e)}
+                                     onMouseLeave={() => onHover(null)}
+                                 >
+                                     <span className="text-2xl filter drop-shadow-md">{item.icon}</span>
+                                     {count > 1 && <div className="absolute bottom-0 right-0 bg-black/80 text-white text-[9px] font-bold px-1">{count}</div>}
+                                     {item.type === 'POTION' && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_5px_red]"></div>}
+                                 </div>
+                             );
+                         })}
+                         {Array.from({ length: Math.max(0, 25 - groupedInventory.length) }).map((_, i) => (
+                             <div key={`empty_${i}`} className="aspect-square border border-[#222] bg-black/20" />
+                         ))}
+                     </div>
+                 )}
+             </div>
+             
+             <div className="p-2 border-t border-[#333] bg-[#0d0d10] text-center">
+                <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Right Click to Use</p>
+             </div>
         </div>
     );
 };
@@ -615,7 +751,16 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [gameState, setGameState] = useState<'CREATION' | 'ADVENTURE' | 'GAME_OVER'>('CREATION');
+  
+  // Independent Window States
   const [showInventory, setShowInventory] = useState(false);
+  const [showEquipment, setShowEquipment] = useState(false);
+  
+  // Tooltip State
+  const [hoveredItem, setHoveredItem] = useState<{ item: Item, x: number, y: number } | null>(null);
+
+  // Lifted Drag State for interaction between windows
+  const [dragItem, setDragItem] = useState<{ item: Item, source: DragSourceType } | null>(null);
   
   const [creationName, setCreationName] = useState('');
   const [selectedClass, setSelectedClass] = useState<PlayerClass | null>(null);
@@ -717,7 +862,9 @@ const App: React.FC = () => {
           setIsSaving(true);
           try {
               // CLOUD SAVE: Syncs to Firestore
-              await setDoc(doc(db, "users", user.uid), saveData, { merge: true });
+              // Fix: Firestore rejects 'undefined' values. JSON stringify/parse removes undefined keys.
+              const cleanData = JSON.parse(JSON.stringify(saveData));
+              await setDoc(doc(db, "users", user.uid), cleanData, { merge: true });
           } catch (e) {
               console.error("Cloud Save Failed", e);
           } finally {
@@ -744,6 +891,19 @@ const App: React.FC = () => {
 
 
   // --- GAME LOGIC ---
+
+  const handleItemHover = (item: Item | null, e?: React.MouseEvent) => {
+      if (!item || !e) {
+          setHoveredItem(null);
+          return;
+      }
+      const rect = e.currentTarget.getBoundingClientRect();
+      setHoveredItem({
+          item,
+          x: rect.left + rect.width / 2,
+          y: rect.top
+      });
+  };
 
   // Loot Particle Animation Loop
   useEffect(() => {
@@ -1103,15 +1263,21 @@ const App: React.FC = () => {
     setCurrentEnemy(nextEnemy);
   };
 
-  const handleEquip = (item: Item) => {
+  const handleEquip = (item: Item, targetSlot?: EquipmentSlot) => {
     if (!character) return;
     let slot: EquipmentSlot | null = null;
-    if (item.type === 'RING') {
-        if (!character.equipment.RING1) slot = 'RING1';
-        else if (!character.equipment.RING2) slot = 'RING2';
-        else slot = 'RING1'; 
-    } else if (['HELM', 'CHEST', 'GLOVES', 'BOOTS', 'OFFHAND', 'AMULET', 'BELT', 'WEAPON'].includes(item.type)) {
-        slot = item.type as EquipmentSlot;
+    
+    if (targetSlot) {
+        slot = targetSlot;
+    } else {
+        // Auto-determine
+        if (item.type === 'RING') {
+            if (!character.equipment.RING1) slot = 'RING1';
+            else if (!character.equipment.RING2) slot = 'RING2';
+            else slot = 'RING1'; 
+        } else if (['HELM', 'CHEST', 'GLOVES', 'BOOTS', 'OFFHAND', 'AMULET', 'BELT', 'WEAPON'].includes(item.type)) {
+            slot = item.type as EquipmentSlot;
+        }
     }
 
     if (!slot) return;
@@ -1499,14 +1665,34 @@ const App: React.FC = () => {
           ))}
       </div>
 
+      {showEquipment && (
+          <EquipmentWindow 
+              character={character} 
+              onEquip={handleEquip} 
+              onUnequip={handleUnequip} 
+              onClose={() => setShowEquipment(false)} 
+              dragItem={dragItem}
+              setDragItem={setDragItem}
+              onHover={handleItemHover}
+          />
+      )}
+
       {showInventory && (
-          <InventoryModal 
+          <InventoryWindow 
               character={character} 
               onEquip={handleEquip} 
               onUnequip={handleUnequip} 
               onUse={handleUseItem}
               onClose={() => setShowInventory(false)} 
+              dragItem={dragItem}
+              setDragItem={setDragItem}
+              onHover={handleItemHover}
           />
+      )}
+      
+      {/* Global Fixed Tooltip */}
+      {hoveredItem && (
+          <ItemTooltip item={hoveredItem.item} position={{ x: hoveredItem.x, y: hoveredItem.y }} />
       )}
 
       {/* COMPACT HUD */}
@@ -1564,7 +1750,8 @@ const App: React.FC = () => {
               </div>
               <div className="flex gap-2 h-14">
                  <button className="px-5 ui-panel bg-[#1a1a20] border-[#444] text-[10px] text-amber-500 font-black uppercase tracking-[0.2em] hover:text-white hover:border-amber-600 transition-all rounded shadow-lg opacity-50 cursor-not-allowed">Skills</button>
-                 <button onClick={() => setShowInventory(true)} className="px-5 ui-panel bg-[#1a1a20] border-[#444] text-[10px] text-amber-500 font-black uppercase tracking-[0.2em] hover:text-white hover:border-amber-600 transition-all rounded shadow-lg">Gear</button>
+                 <button onClick={() => setShowEquipment(!showEquipment)} className={`px-5 ui-panel border-[#444] text-[10px] font-black uppercase tracking-[0.2em] hover:text-white hover:border-amber-600 transition-all rounded shadow-lg ${showEquipment ? 'bg-amber-900/40 text-amber-100 border-amber-600' : 'bg-[#1a1a20] text-amber-500'}`}>Equip</button>
+                 <button onClick={() => setShowInventory(!showInventory)} className={`px-5 ui-panel border-[#444] text-[10px] font-black uppercase tracking-[0.2em] hover:text-white hover:border-amber-600 transition-all rounded shadow-lg ${showInventory ? 'bg-amber-900/40 text-amber-100 border-amber-600' : 'bg-[#1a1a20] text-amber-500'}`}>Bag</button>
                  <button onClick={() => { auth.signOut(); }} className="px-5 ui-panel bg-[#1a1a20] border-[#444] text-[10px] text-red-500 font-black uppercase tracking-[0.2em] hover:text-white hover:border-red-600 transition-all rounded shadow-lg">Exit</button>
               </div>
          </div>
